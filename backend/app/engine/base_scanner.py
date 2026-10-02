@@ -104,8 +104,8 @@ class BaseScanner(ABC):
             container.remove()
 
     def _save_finding(self, db: Session, scan_id: int, v_type: str, severity: str,
-                     file_path: str, line: int, desc: str, remediation: str = None,
-                     cwe: str = None):
+                     file_path: str, line: int, desc: str, remediation: str | None = None,
+                     cwe: str | None = None):
         finding = Finding(
             scan_id=scan_id,
             vulnerability_type=v_type,

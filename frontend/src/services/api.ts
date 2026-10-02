@@ -1,8 +1,7 @@
 // Vite only exposes env vars prefixed with VITE_ to the bundle, so the API
 // origin has to be spelled VITE_API_URL (CRA's REACT_APP_ prefix does nothing
-// here). Defaults to the local compose setup so `docker compose up` works with
-// no config, matching how the backend's CORS_ORIGINS is defaulted.
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// here). Defaults to empty string so the Vite dev server proxy routes to backend.
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 export interface ScanRow {
   id: number;

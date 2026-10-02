@@ -131,7 +131,7 @@ if __name__ == "__main__":
     # The mount prefix the scanner uses and the one the normalizer strips have
     # to be the same string, or paths silently stop matching between scan and
     # report.
-    from .normalizer import FindingNormalizer
+    from app.engine.normalizer import FindingNormalizer
 
     norm = FindingNormalizer()
     got = norm.normalize_checkov({"check_id": "CKV_AWS_18", "check_name": "x",
