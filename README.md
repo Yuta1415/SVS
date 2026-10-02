@@ -146,7 +146,7 @@ graph TB
         D[pip-audit / npm audit]
         I[Checkov IaC]
     end
-    SCANNERS -->|bind-mount read-only| UPLOADS[/tmp/svs_uploads/scan_N]
+    SCANNERS -->|bind-mount read-only| UPLOADS["/tmp/svs_uploads/scan_N"]
     WORKER --> UPLOADS
 ```
 
