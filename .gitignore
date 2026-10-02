@@ -1,0 +1,19 @@
+# Deployment secrets. Regenerate per environment; never commit.
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node
+node_modules/
+frontend/build/
+
+# Local uploads and editor noise
+/tmp/svs_uploads/
+.DS_Store
+.idea/
+.vscode/

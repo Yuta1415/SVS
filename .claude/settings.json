@@ -1,0 +1,9 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.atria-asi.ai/",
+    "ANTHROPIC_AUTH_TOKEN": "atr_Cgd2KPV-hrEtRoRH5Nn6ecX92_Sd__tm",
+    "ANTHROPIC_API_KEY": "",
+    "ANTHROPIC_MODEL": "Atria-Dawn-Preview"
+  },
+  "autoUpdatesChannel": "latest"
+}

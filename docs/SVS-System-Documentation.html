@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SVS — Security Vulnerability Scanner: System Documentation</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #5a6472;
+    --accent: #0f6f5f;
+    --rule: #c9d1d9;
+    --soft: #f3f6f8;
+    --code-bg: #f6f8fa;
+    --crit: #b91c1c;
+    --high: #c2410c;
+    --med: #b45309;
+    --low: #15803d;
+  }
+  @page {
+    size: A4;
+    margin: 20mm 16mm 18mm 16mm;
+    @top-center {
+      content: "SVS — Security Vulnerability Scanner · System Documentation";
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 7.5pt;
+      color: #8a94a3;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 7.5pt;
+      color: #8a94a3;
+    }
+  }
+  @page :first { @top-center { content: none; } }
+
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 9.4pt;
+    line-height: 1.5;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  h1, h2, h3, h4 { line-height: 1.25; color: #111827; }
+  h2 {
+    font-size: 16pt;
+    color: var(--accent);
+    border-bottom: 1.5pt solid var(--rule);
+    padding-bottom: 3pt;
+    margin: 0 0 10pt 0;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 12pt;
+    margin: 14pt 0 5pt 0;
+    color: #1f2937;
+    page-break-after: avoid;
+  }
+  h4 {
+    font-size: 10.2pt;
+    margin: 11pt 0 4pt 0;
+    color: #374151;
+    page-break-after: avoid;
+  }
+  p { margin: 0 0 7pt 0; }
+  ul, ol { margin: 0 0 8pt 0; padding-left: 16pt; }
+  li { margin-bottom: 3pt; }
+  code, kbd, samp {
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    font-size: 8.1pt;
+    background: var(--code-bg);
+    border: 0.5pt solid #e3e8ec;
+    border-radius: 2pt;
+    padding: 0.5pt 2.5pt;
+  }
+  pre {
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    font-size: 7.6pt;
+    line-height: 1.42;
+    background: var(--code-bg);
+    border: 0.5pt solid #dfe5ea;
+    border-left: 2.5pt solid var(--accent);
+    border-radius: 3pt;
+    padding: 7pt 9pt;
+    margin: 0 0 9pt 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    page-break-inside: avoid;
+  }
+  pre.plain { border-left-color: #9aa6b2; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 10pt 0;
+    font-size: 8.2pt;
+  }
+  th {
+    text-align: left;
+    background: var(--soft);
+    border: 0.5pt solid var(--rule);
+    padding: 4pt 6pt;
+    font-weight: bold;
+    color: #1f2937;
+  }
+  td {
+    border: 0.5pt solid var(--rule);
+    padding: 4pt 6pt;
+    vertical-align: top;
+  }
+  tr { page-break-inside: avoid; }
+  td code, th code { background: transparent; border: none; padding: 0; }
+
+  .cover {
+    page-break-after: always;
+    text-align: center;
+    padding-top: 70mm;
+  }
+  .cover .rule { width: 40mm; border-top: 2pt solid var(--accent); margin: 8mm auto; }
+  .cover h1 { font-size: 26pt; margin: 0; letter-spacing: -0.5pt; }
+  .cover .sub { font-size: 12pt; color: var(--muted); margin-top: 4mm; }
+  .cover .meta {
+    margin-top: 34mm; font-size: 9pt; color: var(--muted);
+    text-align: left; width: 100mm; margin-left: auto; margin-right: auto;
+  }
+  .cover .meta td { border: none; padding: 2.5pt 4pt; }
+
+  .toc { page-break-after: always; }
+  .toc h2 { border-bottom: none; }
+  .toc ol { list-style: none; padding-left: 0; counter-reset: toc; }
+  .toc > ol > li { counter-increment: toc; margin-bottom: 4.5pt; }
+  .toc > ol > li > span.num::before {
+    content: counter(toc, upper-roman) ". ";
+    color: var(--accent); font-weight: bold;
+  }
+  .toc ol ol { list-style: none; padding-left: 14pt; margin-top: 2pt; }
+  .toc ol ol > li { margin-bottom: 2pt; font-size: 8.6pt; color: #3c4654; }
+
+  .sect { page-break-before: always; }
+  .lead { font-size: 10pt; color: #374151; }
+  .note {
+    background: #eff6ff; border: 0.5pt solid #bfdbfe; border-left: 2.5pt solid #2563eb;
+    border-radius: 3pt; padding: 6pt 9pt; margin: 0 0 9pt 0; font-size: 8.6pt;
+    page-break-inside: avoid;
+  }
+  .warn {
+    background: #fff7ed; border: 0.5pt solid #fed7aa; border-left: 2.5pt solid #ea580c;
+    border-radius: 3pt; padding: 6pt 9pt; margin: 0 0 9pt 0; font-size: 8.6pt;
+    page-break-inside: avoid;
+  }
+  .drift {
+    background: #fef2f2; border: 0.5pt solid #fecaca; border-left: 2.5pt solid #dc2626;
+    border-radius: 3pt; padding: 6pt 9pt; margin: 0 0 9pt 0; font-size: 8.6pt;
+    page-break-inside: avoid;
+  }
+
+  .sev { font-weight: bold; }
+  .sev.crit { color: var(--crit); } .sev.high { color: var(--high); }
+  .sev.med  { color: var(--med);  } .sev.low  { color: var(--low); }
+
+  .meth {
+    display: inline-block; font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 7.4pt; font-weight: bold; color: #fff; border-radius: 2pt;
+    padding: 1pt 4pt; margin-right: 3pt;
+  }
+  .meth.get  { background: #0e7490; }
+  .meth.post { background: #15803d; }
+  .meth.patch{ background: #b45309; }
+  .meth.del  { background: #b91c1c; }
+
+  .kv td:first-child { font-family: "JetBrains Mono", Consolas, monospace; font-size: 7.8pt; white-space: nowrap; }
+  .small { font-size: 8pt; color: var(--muted); }
+  hr { border: none; border-top: 0.5pt solid var(--rule); margin: 12pt 0; }
+</style>
+</head>
+<body>
+
+<!-- ============================== COVER ============================== -->
+<div class="cover">
+  <h1>SVS</h1>
+  <div class="rule"></div>
+  <div class="sub">Security Vulnerability Scanner<br>System Documentation</div>
+  <table class="meta">
+    <tr><td>System</td><td>SVS — Security Vulnerability Scanner</td></tr>
+    <tr><td>Version documented</td><td>Frontend badge v2.4 · build <code>e474377</code></td></tr>
+    <tr><td>Date</td><td>22 September 2026</td></tr>
+    <tr><td>Source of truth</td><td>Code in <code>backend/</code> and <code>frontend/</code></td></tr>
+    <tr><td>Deployment model</td><td>Single-user, local, Docker Compose on a laptop</td></tr>
+    <tr><td>Companion files</td><td><code>README.md</code> (quick start), <code>/docs</code> on port 8000 (live OpenAPI)</td></tr>
+  </table>
+</div>
+
+<!-- ============================== TOC ============================== -->
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><span class="num"></span><b>System overview</b>
+      <ol><li>What SVS is</li><li>Design posture: no AI, no auth</li><li>The thirty-second version</li><li>Repository layout</li></ol></li>
+    <li><span class="num"></span><b>Architecture</b>
+      <ol><li>Component topology</li><li>Compose services</li><li>Two contracts that make scanning possible</li><li>Technology stack</li></ol></li>
+    <li><span class="num"></span><b>Request lifecycle: a scan end to end</b>
+      <ol><li>Dispatch</li><li>Ingestion</li><li>Queue</li><li>Worker execution</li><li>Termination and cleanup</li><li>Client polling</li></ol></li>
+    <li><span class="num"></span><b>Scan engines</b>
+      <ol><li>Shared container contract: <code>_run_container</code></li><li>Semgrep (SAST)</li><li>Gitleaks (secrets)</li><li>Dependency audit (SCA)</li><li>Failure semantics</li></ol></li>
+    <li><span class="num"></span><b>Findings normalization</b></li>
+    <li><span class="num"></span><b>Scoring</b>
+      <ol><li>Formula and weights</li><li>Worked examples</li><li>Why hyperbolic, not flat</li></ol></li>
+    <li><span class="num"></span><b>API reference</b>
+      <ol><li>Conventions</li><li>Scans</li><li>Projects</li><li>Root and health</li><li>Derived response fields</li></ol></li>
+    <li><span class="num"></span><b>Data model</b>
+      <ol><li>Tables</li><li>Relationships</li><li>Migration and startup</li><li>The users table without authentication</li></ol></li>
+    <li><span class="num"></span><b>Frontend</b>
+      <ol><li>Application shell and state</li><li>Views</li><li>Service layer</li><li>Adapter layer</li><li>What the UI simulates</li><li>Build and serving</li></ol></li>
+    <li><span class="num"></span><b>Configuration</b>
+      <ol><li>Backend settings</li><li>Environment file</li><li>Frontend build configuration</li><li>Rate limiting</li><li>CORS</li></ol></li>
+    <li><span class="num"></span><b>Security posture</b>
+      <ol><li>Deliberate boundaries</li><li>Honest exposures</li><li>SSRF controls, client and server</li></ol></li>
+    <li><span class="num"></span><b>Testing</b>
+      <ol><li>Scoring unit tests</li><li>Pipeline integration test</li><li>Self-checks</li><li>The vulnerable fixture</li></ol></li>
+    <li><span class="num"></span><b>Operations</b>
+      <ol><li><code>run-svs.bat</code> step by step</li><li>The <code>localhost</code> shadow on port 3000</li><li>Editing code: rebuild is mandatory</li><li>Logs, stops, resets</li><li>Database backup and restore</li></ol></li>
+    <li><span class="num"></span><b>CI/CD pipeline</b></li>
+    <li><span class="num"></span><b>Known limitations and documentation drift</b></li>
+    <li><span class="num"></span><b>File inventory</b></li>
+  </ol>
+</div>
+
+<!-- ============================== I. OVERVIEW ============================== -->
+<div class="sect">
+<h2>I. System overview</h2>
+
+<h3>1. What SVS is</h3>
+<p class="lead">SVS is a security scanning service that ingests a Git repository or a
+<code>.zip</code> archive, runs three deterministic engines against it, and reports a
+security posture score with per-finding remediation guidance.</p>
+
+<p>An SVS install is five Docker containers on one machine: a PostgreSQL database, a
+Redis broker, a FastAPI API, a Celery worker, and an nginx-served React frontend. The
+API accepts a target, the worker clones or unpacks it into a per-scan directory, and
+that directory is mounted read-only (or read-write, where a tool must write a report)
+into throwaway sibling scanner containers. Each scanner's findings are normalized into
+one common shape, written to the database, and scored. The frontend polls until the scan
+reaches a terminal state, then renders the findings with triage controls and a link to a
+server-generated PDF.</p>
+
+<table>
+<tr><th style="width:20%">Aspect</th><th>Reality</th></tr>
+<tr><td>Intended deployment</td><td>One operator's own laptop. Not a multi-tenant SaaS, despite some UI text inherited from the original spec.</td></tr>
+<tr><td>Analysis type</td><td>Static: SAST patterns, secret detection, dependency CVEs. Nothing is executed, fuzzed, or dynamically probed.</td></tr>
+<tr><td>AI involvement</td><td>None. Every finding comes from a deterministic tool; every score is arithmetic.</td></tr>
+<tr><td>Authentication</td><td>Removed by design. See section I.2.</td></tr>
+<tr><td>Where scanned code lives</td><td>On the host only, under <code>/tmp/svs_uploads/scan_&lt;id&gt;</code>, deleted when the scan finishes.</td></tr>
+<tr><td>Network egress</td><td>Only the Semgrep ruleset and the CVE advisory database are fetched. Scanned code never leaves the host.</td></tr>
+</table>
+
+<h3>2. Design posture: no AI, no auth</h3>
+<p>Two decisions are load-bearing and easy to misread:</p>
+<ul>
+<li><b>No authentication.</b> Every request resolves to a single <code>local</code> user row
+(<code>backend/app/api/deps.py:11</code>). The users table survives only because
+<code>projects.owner_id</code> has a non-nullable foreign key to it, and because the
+historical projects and scans created under the old accounts are worth more than a clean
+schema. The row is created on first use with an unusable password (<code>!</code>) that no
+endpoint ever checks.</li>
+<li><b>No inference.</b> The scoring service is a closed-form arithmetic function of finding
+counts. Two scans of the same code produce the same score, which is the point: the number
+can be reproduced from the report instead of trusted.</li>
+</ul>
+<p>Concretely, no endpoint checks a token, no ownership filter is applied anywhere in the
+API, and the frontend renders a small green <code>local</code> pill in the navbar to say so.
+Every route is annotated <code>Auth: None (single-user local instance)</code> in the in-app
+API reference, and that is accurate.</p>
+
+<h3>3. The thirty-second version</h3>
+<ol>
+<li>The operator presses <i>Dispatch Security Pipeline</i> with either a Git URL, a zip
+archive, or the demo target.</li>
+<li>The API validates the URL, clones or unpacks the code into
+<code>/tmp/svs_uploads/scan_&lt;id&gt;</code>, writes a <code>scans</code> row at
+<code>PENDING</code>, enqueues a Celery task, and returns immediately.</li>
+<li>The worker marks the scan <code>RUNNING</code> and runs Semgrep, then Gitleaks, then a
+dependency audit, each in its own container with a memory cap and a 15-minute timeout.</li>
+<li>Each tool's output is normalized into the same finding shape and inserted.</li>
+<li>Scoring sums weighted risk points into <code>score = 100 / (1 + risk / 25)</code>.</li>
+<li>The worker deletes the scan directory, closes the session, and the scan is
+<code>COMPLETED</code> (or <code>FAILED</code> with the name of the broken scanner).</li>
+<li>The dashboard's 2.5-second polling notices, and the report view renders findings,
+triage buttons, and a link to the server-side PDF.</li>
+</ol>
+
+<h3>4. Repository layout</h3>
+<pre class="plain">SVS/
+├── backend/                # FastAPI API + Celery worker (one image, two services)
+│   ├── app/
+│   │   ├── api/            # routers: scans, projects, deps
+│   │   ├── core/           # config, celery app, rate limiting
+│   │   ├── engine/         # ingestion, scanners, normalizer, scoring, reporting, tasks
+│   │   ├── models/         # SQLAlchemy: user, project, scan, finding
+│   │   ├── schemas/        # pydantic request/response models
+│   │   ├── database.py     # engine + SessionLocal + get_db
+│   │   └── main.py         # FastAPI app, CORS, startup migration
+│   ├── tests/              # scoring unit tests + pipeline integration test
+│   │   └── fixtures/vulnerable_project/
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/               # Vite + React 19 + TypeScript + Tailwind v4
+│   ├── src/
+│   │   ├── components/     # Navbar + 5 views
+│   │   ├── data/           # static knowledge base + architecture docs
+│   │   ├── services/       # api.ts (fetch), adapter.ts (mapping)
+│   │   ├── types.ts
+│   │   ├── App.tsx         # shell, state, polling
+│   │   └── main.tsx
+│   ├── nginx.conf
+│   └── Dockerfile          # node build -> nginx
+├── frontend-cra-legacy/    # superseded Create React App build, kept for reference
+├── docs/                   # this document
+├── docker-compose.yml
+├── run-svs.bat             # the one-command launcher
+├── start.bat               # bare up --build + open browser
+├── .github/workflows/ci-cd.yml
+├── .env                    # deployment configuration (not for reuse)
+└── README.md</pre>
+</div>
+
+<!-- ============================== II. ARCHITECTURE ============================== -->
+<div class="sect">
+<h2>II. Architecture</h2>
+
+<h3>1. Component topology</h3>
+<pre class="plain">  Browser (127.0.0.1:3000)
+       │  fetch, CORS, 2.5s poll
+       ▼
+  ┌──────────────────────────────────────────────────────────┐
+  │ nginx (frontend container)                               │
+  │  serves the Vite production build; SPA fallback to /     │
+  └──────────────────────────────────────────────────────────┘
+       │
+       ▼
+  ┌──────────────────────────────────────────────────────────┐
+  │ FastAPI  (backend container, port 8000)                  │
+  │  routers: /scans, /projects   deps: get_local_user,      │
+  │  RateLimiter (5/hour via Redis)                          │
+  └──────────────────────────────────────────────────────────┘
+       │  SQLAlchemy                │  redis.incr / expire
+       ▼                            ▼
+  ┌────────────────┐        ┌────────────────┐
+  │ PostgreSQL 15  │        │ Redis 7        │
+  │ (volume)       │        │ Celery broker  │
+  └────────────────┘        │ + result store │
+       ▲                    └────────────────┘
+       │                            │  task: run_security_scan
+       │                            ▼
+       │                    ┌──────────────────────────────────┐
+       │                    │ Celery worker (worker container) │
+       │                    │  ScannerService.run_full_scan    │
+       │                    └──────────────────────────────────┘
+       │                            │  docker.from_env() on the
+       │                            │  mounted daemon socket
+       │                            ▼
+       │              ┌──────────────────────────────────────┐
+       │              │ sibling scanner containers           │
+       │              │  semgrep/semgrep   (net on,  512m)   │
+       │              │  gitleaks:latest   (net off, 256m)   │
+       │              │  python:3.11-slim  (net on,  512m)   │
+       │              │  node:18-alpine    (net on,  512m)   │
+       │              └──────────────────────────────────────┘
+       │                            │
+       └────────────────────────────┘  findings + score written
+                                        back through the worker
+
+  host bind:  /tmp/svs_uploads  ── mounted into both the worker and
+  every scanner container, so /src inside a scanner is the same real
+  path the worker reads.</pre>
+
+<h3>2. Compose services</h3>
+<p>From <code>docker-compose.yml</code>. All five use <code>restart: always</code>.</p>
+<table>
+<tr><th>Service</th><th>Image / build</th><th>Ports</th><th>Volumes</th><th>Notes</th></tr>
+<tr><td><code>db</code></td><td><code>postgres:15-alpine</code></td><td><code>5432:5432</code></td><td><code>postgres_data</code> (named)</td><td>Healthcheck <code>pg_isready</code>, 5s interval, 5 retries. Backend and worker wait for it to be healthy.</td></tr>
+<tr><td><code>redis</code></td><td><code>redis:7-alpine</code></td><td><code>6379:6379</code></td><td>-</td><td>No healthcheck; <code>service_started</code> only. Broker and result store for Celery, plus the rate-limit counter.</td></tr>
+<tr><td><code>backend</code></td><td><code>build: ./backend</code></td><td><code>8000:8000</code></td><td>docker socket, <code>/tmp/svs_uploads</code></td><td>Runs uvicorn on 0.0.0.0:8000. Hosts the API, the Swagger UI, and the PDF generator.</td></tr>
+<tr><td><code>worker</code></td><td><code>build: ./backend</code></td><td>-</td><td>docker socket, <code>/tmp/svs_uploads</code></td><td>Command: <code>celery -A app.core.celery_app worker --loglevel=info</code>. Same image as the backend; it needs the socket and the upload path, not a port.</td></tr>
+<tr><td><code>frontend</code></td><td><code>build: ./frontend</code></td><td><code>3000:80</code></td><td>-</td><td>Build arg <code>VITE_API_URL</code> from <code>FRONTEND_API_URL</code>, default <code>http://localhost:8000</code>. nginx serves the static bundle.</td></tr>
+</table>
+<p class="small">The <code>frontend-cra-legacy/</code> directory contains the superseded
+Create React App build with its own Dockerfile and nginx config. It is not referenced by
+<code>docker-compose.yml</code> and does not run.</p>
+
+<h3>3. Two contracts that make scanning possible</h3>
+<p>Two non-obvious arrangements are what let the worker spawn scanner containers at all.
+Both are commented in the compose file.</p>
+
+<h4>3.1 The Docker socket mount</h4>
+<p>Both the backend and the worker mount <code>/var/run/docker.sock</code>. The scanners
+are not libraries or subprocesses; they are sibling containers started through the
+<code>docker</code> Python client (<code>docker.from_env()</code> in
+<code>engine/scanner.py:19</code>). The worker talks to the host daemon, so every scanner
+container is a peer of the worker, not a child of it. This is the single largest attack
+surface in the system and is documented honestly in section XI.2.</p>
+
+<h4>3.2 The host bind at <code>/tmp/svs_uploads</code></h4>
+<p>This is a host bind, not a named volume, and the reason is mechanical. A scanner
+container receives <code>volumes=["/tmp/svs_uploads/scan_42:/src"]</code>. If
+<code>/tmp/svs_uploads</code> were a named volume, the path the worker passes would not
+resolve to the same real path on the daemon's filesystem, and the mount would be empty.
+The bind guarantees the worker and every scanner agree on one absolute path. It is also
+why uploads live under <code>/tmp</code> on the host rather than inside a container
+filesystem that would be discarded.</p>
+
+<h3>4. Technology stack</h3>
+<table>
+<tr><th>Layer</th><th>Choice</th><th>Pinned version</th></tr>
+<tr><td>API framework</td><td>FastAPI on uvicorn</td><td>0.115.0 / 0.30.6</td></tr>
+<tr><td>ORM</td><td>SQLAlchemy (declarative <code>DeclarativeBase</code>)</td><td>2.0.32</td></tr>
+<tr><td>Database</td><td>PostgreSQL, driver <code>psycopg2-binary</code></td><td>15-alpine / 2.9.9</td></tr>
+<tr><td>Job queue</td><td>Celery, Redis broker and result store</td><td>5.4.0 / 5.0.3</td></tr>
+<tr><td>Container control</td><td><code>docker</code> Python SDK</td><td>7.1.0</td></tr>
+<tr><td>Git cloning</td><td>GitPython (<code>Repo.clone_from</code>, <code>depth=1</code>)</td><td>3.1.43</td></tr>
+<tr><td>PDF generation</td><td><code>xhtml2pdf</code> (pisa) from an inline HTML template</td><td>0.2.16</td></tr>
+<tr><td>Settings</td><td><code>pydantic</code> + <code>pydantic-settings</code></td><td>2.7.4 / 2.3.4</td></tr>
+<tr><td>Multipart uploads</td><td><code>python-multipart</code></td><td>0.0.9</td></tr>
+<tr><td>Frontend</td><td>React 19, Vite 8, TypeScript 7, Tailwind CSS v4 (via <code>@tailwindcss/vite</code>), lucide-react icons, motion</td><td>see <code>frontend/package.json</code></td></tr>
+<tr><td>Frontend serving</td><td>nginx stable-alpine with an SPA fallback</td><td>-</td></tr>
+</table>
+</div>
+
+<!-- ============================== III. LIFECYCLE ============================== -->
+<div class="sect">
+<h2>III. Request lifecycle: a scan end to end</h2>
+<p class="lead">This is the trace to read when something goes wrong. Every state
+transition below is a real line of code.</p>
+
+<h3>1. Dispatch</h3>
+<p>The frontend's <code>IngestScanView</code> collects a project name and either a Git URL
+or a file. Before calling the API it deduplicates projects: it calls
+<code>GET /projects/</code> and reuses an existing project with the same name, otherwise
+<code>POST /projects/</code> to register one. Every scan is keyed off a project row, and
+this avoids forking a duplicate project per scan. The demo path is different:
+<code>POST /scans/demo</code> clones a fixed target and files the result under its own
+<code>Demo Project</code> row, so no project is created or named by the client.</p>
+<p>Three entry routes exist, all rate-limited at 5 scans per hour per user:</p>
+<ul>
+<li><code>POST /scans/git</code> — multipart <code>project_id</code> + <code>repo_url</code></li>
+<li><code>POST /scans/upload</code> — multipart <code>project_id</code> + <code>file</code>, must end in <code>.zip</code></li>
+<li><code>POST /scans/demo</code> — no body; clones <code>https://github.com/juice-shop/juice-shop</code></li>
+</ul>
+
+<h3>2. Ingestion</h3>
+<p><code>IngestionService</code> (<code>backend/app/engine/ingestion.py</code>) writes the
+<code>scans</code> row first, at <code>PENDING</code>, so a scan ID exists before any work.
+Then:</p>
+<ul>
+<li><b>Git</b> — <code>validate_repo_url</code> checks the scheme is http/https/ssh/git,
+requires a netloc, resolves the hostname through <code>getaddrinfo</code>, and rejects any
+resolved address that is private, loopback, link-local, multicast, or reserved. Then
+<code>Repo.clone_from(url, path, depth=1)</code>. A clone failure deletes the scan row
+and returns 400.</li>
+<li><b>Zip</b> — reads the whole upload into memory and rejects anything over
+<code>MAX_FILE_SIZE</code> (50 MB), extracts into the scan directory, and on
+<code>BadZipFile</code> deletes the scan row and returns 400.</li>
+</ul>
+<p>The scan directory is <code>&lt;UPLOAD_DIR&gt;/scan_&lt;scan_id&gt;</code>, i.e.
+<code>/tmp/svs_uploads/scan_42</code>. The scan ID determines the path, which is why the
+row must exist before extraction.</p>
+
+<h3>3. Queue</h3>
+<p>The router calls <code>run_security_scan.delay(scan.id, project.id)</code> and returns
+immediately with the scan ID and its <code>PENDING</code> status. The HTTP request is
+therefore bounded by ingestion time, not scan time. The task is registered as
+<code>tasks.run_security_scan</code>, <code>bind=True</code>, <code>max_retries=3</code>.</p>
+
+<h3>4. Worker execution</h3>
+<p><code>run_security_scan</code> (<code>engine/tasks.py</code>) opens its own SQLAlchemy
+session (it does not share the API's), builds the project path, and calls
+<code>ScannerService.run_full_scan</code> (<code>engine/scanner.py:25</code>):</p>
+<ol>
+<li>If the Docker client cannot be reached, the scan is marked <code>FAILED</code> and
+returns. This is the "Docker daemon is not available" path.</li>
+<li>The scan is set to <code>RUNNING</code> and <code>start_time</code> is recorded.</li>
+<li>Three scanners are constructed and run <b>in sequence</b>, not in parallel:
+Semgrep, then Gitleaks, then the dependency scanner. Sequence matters only for log
+readability; there is no data dependency between them.</li>
+<li>Each scanner's exceptions are caught as <code>ScannerError</code> and collected into a
+<code>failures</code> list with the tool name and detail. A broken scanner does not abort
+the remaining ones.</li>
+<li><code>scoring_service.calculate_score(scan_id, db)</code> runs on whatever the
+surviving scanners found, so partial results are visible rather than discarded.</li>
+<li>If any scanner failed, the scan is <code>FAILED</code> and <code>error_detail</code>
+holds the joined list, truncated to 500 characters. Reporting <code>COMPLETED</code> with
+a clean score would hide a broken pipeline as a clean repository.</li>
+<li>Otherwise <code>COMPLETED</code>.</li>
+</ol>
+<p>Any uncaught exception sets <code>FAILED</code> with a <code>Pipeline error:</code>
+prefix, and the task itself retries up to three times with a 60-second countdown.</p>
+
+<h3>5. Termination and cleanup</h3>
+<p>In the task's <code>finally</code>, the scan directory is removed with
+<code>shutil.rmtree</code> and the session is closed. This runs on success and on failure,
+which is why a finished scan leaves no source on disk and why the report view cannot show
+the offending line afterwards. The Gitleaks report file, which contains matched secrets in
+cleartext, is additionally deleted by the scanner itself before that.</p>
+
+<h3>6. Client polling</h3>
+<p>The dashboard polls <code>GET /scans/</code> every 2500 ms while any scan reports
+<code>status === 'scanning'</code> (the adapter collapses <code>PENDING</code> and
+<code>RUNNING</code> into <code>scanning</code>). The ingest view polls
+<code>GET /scans/&lt;id&gt;</code> every 2 s with a 20-minute deadline. Findings are only
+fetched on demand when a scan is selected, because loading every scan's findings up front
+would cost one call per scan on a dashboard that only needs counts.</p>
+</div>
+
+<!-- ============================== IV. ENGINES ============================== -->
+<div class="sect">
+<h2>IV. Scan engines</h2>
+
+<h3>1. Shared container contract: <code>_run_container</code></h3>
+<p>All three scanners subclass <code>BaseScanner</code>
+(<code>backend/app/engine/base_scanner.py</code>) and share one container runner. Its
+contract is the difference between a scanner that reports findings and one that hangs:</p>
+<table>
+<tr><th>Property</th><th>Value</th></tr>
+<tr><td>Execution</td><td><code>detach=True</code> then <code>container.wait()</code>, never <code>detach=False</code>. Several tools exit non-zero on a <i>successful</i> scan; <code>detach=False</code> would raise before the report could be read.</td></tr>
+<tr><td>Timeout</td><td><code>DEFAULT_TIMEOUT = 900</code> (15 min) enforced by the caller's own deadline, not by the SDK. <code>container.wait()</code> raises <code>ReadTimeout</code> when its poll expires with the container still running; the loop re-arms and keeps waiting. On deadline the container is killed and a <code>ScannerError</code> is raised. This exists because a hung scanner used to block <code>wait()</code> forever, leaving the scan stuck on <code>RUNNING</code> and the Celery task wedged with no cleanup.</td></tr>
+<tr><td>Memory</td><td><code>mem_limit</code> per scanner (512 MB default, 256 MB for Gitleaks).</td></tr>
+<tr><td>Network</td><td><code>network_disabled</code> defaults to <code>True</code>; only the scanners that need a ruleset or an advisory DB opt out.</td></tr>
+<tr><td>Exit codes</td><td><code>accept_exit_codes</code> extends the set that counts as success. Gitleaks and npm audit exit 1 to report <i>findings</i>, so their callers pass <code>(0, 1)</code>; without that, the cleanest repo would scan as <code>FAILED</code>.</td></tr>
+<tr><td>Output</td><td>Only stdout is returned. Most tools write the JSON report to stdout and progress chatter to stderr. Gitleaks is the exception and writes to a file.</td></tr>
+<tr><td>Empty stdout</td><td>Returned as-is when the exit code is accepted: gitleaks and npm audit legitimately print nothing when the code is clean, and that is not a failure. Empty stdout with an unaccepted exit code raises <code>ScannerError</code> with the last 500 characters of stderr.</td></tr>
+<tr><td>Cleanup</td><td><code>container.remove()</code> in a <code>finally</code>, always.</td></tr>
+</table>
+<p>Findings are persisted through <code>_save_finding</code>, which uppercases the severity
+and stores optional remediation text. <code>ScannerError</code> carries a
+<code>tool</code> name so the pipeline can tell the operator <i>which</i> scanner broke.</p>
+
+<h3>2. Semgrep (SAST)</h3>
+<p><code>backend/app/engine/semgrep_scanner.py</code></p>
+<table>
+<tr><th>Setting</th><th>Value</th></tr>
+<tr><td>Image</td><td><code>semgrep/semgrep</code> (unpinned latest tag)</td></tr>
+<tr><td>Command</td><td><code>semgrep scan --json --config=auto /src</code></td></tr>
+<tr><td>Mount</td><td><code>/tmp/svs_uploads/scan_&lt;id&gt;:/src:ro</code> — read-only</td></tr>
+<tr><td>Network</td><td><b>Enabled</b>. <code>--config=auto</code> downloads the ruleset from semgrep.dev. Egress is for the ruleset only; the container never uploads scanned code.</td></tr>
+<tr><td>Resources</td><td><code>mem_limit 512m</code>, <code>cpu_period 100000</code>, <code>cpu_quota 50000</code> (50% of one CPU)</td></tr>
+<tr><td>Exit codes</td><td>Default <code>(0,)</code></td></tr>
+</table>
+<p>Output is Semgrep's JSON. Each entry in <code>results</code> is normalized through
+<code>normalize_semgrep</code>; <code>check_id</code> becomes the vulnerability type,
+<code>extra.message</code> the description, <code>extra.remediation</code> the fix text.</p>
+
+<h3>3. Gitleaks (secrets)</h3>
+<p><code>backend/app/engine/gitleaks_scanner.py</code></p>
+<table>
+<tr><th>Setting</th><th>Value</th></tr>
+<tr><td>Image</td><td><code>zricethezav/gitleaks:latest</code> (unpinned)</td></tr>
+<tr><td>Command</td><td><code>detect --no-git --source /src --report-format json --report-path /src/.svs_gitleaks_report.json --no-banner</code></td></tr>
+<tr><td>Mount</td><td><code>/tmp/svs_uploads/scan_&lt;id&gt;:/src</code> — read-write, because the report is written inside the mount</td></tr>
+<tr><td>Network</td><td><b>Disabled</b>. Fully offline: entropy and pattern matching only.</td></tr>
+<tr><td>Resources</td><td><code>mem_limit 256m</code></td></tr>
+<tr><td>Exit codes</td><td><code>(0, 1)</code> — exit 1 means leaks were found</td></tr>
+</table>
+<p>Gitleaks streams nothing usable to stdout, so the report file is read back from the
+mount. If the file is absent or empty, the scan is clean and 0 is returned — not an error.
+The <code>finally</code> block deletes the report file, because it holds matched secrets
+in cleartext and should not outlive the scan directory. Every leak is normalized to
+vulnerability type <code>Secret-Leak</code>, severity <code>CRITICAL</code>, remediation
+"Revoke the secret immediately and rotate it."</p>
+
+<h3>4. Dependency audit (SCA)</h3>
+<p><code>backend/app/engine/dependency_scanner.py</code> — language is detected from the
+project root: <code>requirements.txt</code> selects Python, <code>package.json</code>
+selects JavaScript, and neither means 0 findings.</p>
+
+<h4>4.1 Python path</h4>
+<table>
+<tr><th>Setting</th><th>Value</th></tr>
+<tr><td>Image</td><td><code>python:3.11-slim</code></td></tr>
+<tr><td>Command</td><td><code>sh -c "pip install --quiet pip-audit &gt;/dev/null 2&gt;&amp;1 &amp;&amp; pip-audit -r requirements.txt --format json"</code></td></tr>
+<tr><td>Mount</td><td><code>:/src:ro</code></td></tr>
+<tr><td>Network</td><td>Enabled, to fetch the CVE advisory database</td></tr>
+</table>
+<p>The <code>-r requirements.txt</code> is load-bearing: with no arguments pip-audit
+audits the <i>container's</i> environment, not the project. Output is walked as
+<code>dependencies[].vulns[]</code>; each vulnerability becomes a
+<code>Dependency-Vulnerability</code> finding at <code>HIGH</code>, filed against
+<code>requirements.txt</code>.</p>
+
+<h4>4.2 JavaScript path</h4>
+<table>
+<tr><th>Setting</th><th>Value</th></tr>
+<tr><td>Image</td><td><code>node:18-alpine</code></td></tr>
+<tr><td>Command</td><td><code>sh -c "if [ ! -f package-lock.json ]; then npm install --package-lock-only --ignore-scripts --no-audit --no-fund &gt;/dev/null 2&gt;&amp;1; fi; npm audit --json"</code></td></tr>
+<tr><td>Mount</td><td><code>:/src</code> — read-write, so a missing lockfile can be generated</td></tr>
+<tr><td>Network</td><td>Enabled, for the registry and the advisory feed</td></tr>
+</table>
+<p>Three details in that command are deliberate and each has caused a failure before:</p>
+<ul>
+<li><code>--ignore-scripts</code> means the scanner never executes the target repo's
+install or postinstall hooks — arbitrary code from untrusted input. It is also what makes
+repos with workspace-hopping postinstall scripts scannable at all.</li>
+<li>The separator is <code>;</code>, not <code>&amp;&amp;</code>, so a failed lockfile
+generation does not short-circuit the audit.</li>
+<li><code>npm audit</code> exits 1 when it <i>finds</i> vulnerabilities, which is why the
+runner accepts exit code 1.</li>
+</ul>
+<p>npm audit reports its own failures (missing lockfile, unreachable registry) as a JSON
+error object with exit 1 and empty vulnerability data. Without an explicit check that
+would read as "clean", so the scanner raises <code>ScannerError("SCA Audit", ...)</code>
+when <code>"error"</code> is present.</p>
+
+<h3>5. Failure semantics</h3>
+<table>
+<tr><th>Condition</th><th>Result</th></tr>
+<tr><td>One scanner raises <code>ScannerError</code></td><td>Others still run; findings from survivors are scored; scan is <code>FAILED</code> with <code>error_detail</code> naming the tool and reason</td></tr>
+<tr><td>A scanner times out</td><td>Container killed, <code>ScannerError</code>, treated as above</td></tr>
+<tr><td>A scanner exits non-zero with no stdout</td><td><code>ScannerError</code> with stderr tail</td></tr>
+<tr><td>Docker daemon unreachable</td><td>Scan set to <code>FAILED</code> immediately, no scanners attempted</td></tr>
+<tr><td>Uncaught exception in the task</td><td><code>FAILED</code>, task retried up to 3 times after 60 s</td></tr>
+<tr><td>All scanners succeed, no findings</td><td><code>COMPLETED</code>, score 100</td></tr>
+</table>
+</div>
+
+<!-- ============================== V. NORMALIZATION ============================== -->
+<div class="sect">
+<h2>V. Findings normalization</h2>
+<p class="lead"><code>FindingNormalizer</code> (<code>backend/app/engine/normalizer.py</code>)
+is the choke point where three unrelated tool vocabularies collapse into one. Scoring,
+the findings API, and the PDF all consume that one shape, so a mapping bug would silently
+poison all three rather than break anything visibly.</p>
+
+<h3>The severity maps</h3>
+<pre>SEMGREP_SEVERITY = {"ERROR": "HIGH", "WARNING": "MEDIUM", "INFO": "INFO"}
+NPM_SEVERITY     = {"critical": "CRITICAL", "high": "HIGH",
+                    "moderate": "MEDIUM", "low": "LOW", "info": "INFO"}</pre>
+<ul>
+<li>Semgrep reports <code>ERROR</code>/<code>WARNING</code>/<code>INFO</code>; SVS scores
+<code>CRITICAL</code>/<code>HIGH</code>/<code>MEDIUM</code>/<code>LOW</code>/<code>INFO</code>.
+There is no Semgrep level that maps to <code>CRITICAL</code>.</li>
+<li>npm reports <code>moderate</code>, not <code>medium</code>. A naive
+<code>.upper()</code> produced a severity the scoring weights do not recognize, and every
+moderate advisory silently scored zero and counted toward nothing. The explicit map fixes
+that.</li>
+<li>Unknown values fall back to <code>MEDIUM</code>, never to zero, at every level:
+the normalizer, the scorer's <code>WEIGHTS.get(severity, 4)</code>, and the severity
+counter.</li>
+</ul>
+
+<h3>Output shape</h3>
+<p>Every normalizer returns the same dict, consumed as <code>**kwargs</code> by
+<code>_save_finding</code>:</p>
+<table>
+<tr><th>Field</th><th>Source per tool</th></tr>
+<tr><td><code>v_type</code></td><td>Semgrep: the rule's <code>check_id</code>. Gitleaks: literal <code>Secret-Leak</code>. Both SCA paths: literal <code>Dependency-Vulnerability</code>.</td></tr>
+<tr><td><code>severity</code></td><td>Semgrep and npm: mapped as above. Gitleaks and pip-audit: constant <code>CRITICAL</code> and <code>HIGH</code> respectively.</td></tr>
+<tr><td><code>file_path</code></td><td>Semgrep: the affected file. Gitleaks: the file containing the secret. SCA: <code>requirements.txt</code> or <code>package.json</code>.</td></tr>
+<tr><td><code>line</code></td><td>Semgrep: <code>start.line</code>. Gitleaks: <code>StartLine</code>. SCA: <code>0</code> — a manifest has no single offending line.</td></tr>
+<tr><td><code>desc</code></td><td>The rule message, the rule ID, or the vulnerable package and advisory id.</td></tr>
+<tr><td><code>remediation</code></td><td>The rule's own remediation text, or a fixed string per tool (rotate the secret; update the package; run <code>npm audit fix</code>).</td></tr>
+</table>
+
+<div class="note"><b>Tool attribution is derived, not stored.</b> The findings API infers
+the source tool from <code>vulnerability_type</code>:
+<code>Secret-Leak</code> → Gitleaks, <code>Dependency-Vulnerability</code> → "SCA Audit",
+anything else → Semgrep (<code>backend/app/api/scans.py:147</code>). This is correct only
+while the three scanners keep those exact type values; a
+<code>scanner_tool</code> column would be needed if that changes.</div>
+
+<p>The module ships with an executable self-check (<code>python -m
+app.engine.normalizer</code>) asserting the severity map, including that a finding with no
+severity field still lands in a scored bucket.</p>
+</div>
+
+<!-- ============================== VI. SCORING ============================== -->
+<div class="sect">
+<h2>VI. Scoring</h2>
+
+<h3>1. Formula and weights</h3>
+<p><code>backend/app/engine/scoring.py</code></p>
+<pre>WEIGHTS = {"CRITICAL": 10, "HIGH": 7, "MEDIUM": 4, "LOW": 1, "INFO": 0}
+DEDUCTION_SCALE = 25.0
+
+risk   = sum(WEIGHTS[f.severity] for f in findings)   # unknown severity -> 4
+score  = round(100 / (1 + risk / 25))</pre>
+<p>Info findings count zero. The scan row stores the score plus the four severity counts,
+which is what the dashboard aggregates without a join.</p>
+
+<h3>2. Worked examples</h3>
+<table>
+<tr><th>Findings</th><th>Risk</th><th>Score</th></tr>
+<tr><td>none</td><td>0</td><td><b>100</b></td></tr>
+<tr><td>1 Low</td><td>1</td><td>96</td></tr>
+<tr><td>1 Medium</td><td>4</td><td>86</td></tr>
+<tr><td>1 High</td><td>7</td><td>78</td></tr>
+<tr><td>1 Critical</td><td>10</td><td>71</td></tr>
+<tr><td>1 Crit + 1 High + 1 Med + 1 Low</td><td>22</td><td>53</td></tr>
+<tr><td>2 × Info</td><td>0</td><td>100</td></tr>
+<tr><td>2 × unknown severity</td><td>8 (falls back to Medium)</td><td>76</td></tr>
+<tr><td>10 × Critical</td><td>100</td><td>20</td></tr>
+<tr><td>40 × Medium</td><td>160</td><td>14</td></tr>
+<tr><td>80 × Medium</td><td>320</td><td>7</td></tr>
+</table>
+<p>These match the assertions in <code>tests/test_scoring.py</code> exactly.</p>
+
+<h3>3. Why hyperbolic, not flat</h3>
+<p>A flat <code>100 - deduction</code> saturates at 0. A repo with 25 medium findings and
+one with 300 both score 0 and stop ranking anything. The hyperbolic discount keeps 100 for
+a clean repo, never reaches 0, and stays strictly discriminative at every scale: 40
+mediums score 14, 80 mediums score 7, so a worse repo is always a lower number. The
+documented ceiling is that no score can ever hit 0, only approach it — which is the
+intended behaviour.</p>
+<p>The frontend mirrors this: the dashboard and report view both print
+<code>score = 100 / (1 + risk/25)</code> and the weight table next to the number, and the
+report view grades A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, F below.</p>
+<p>The scoring module has a <code>__main__</code> self-check using fake query objects that
+asserts: clean is 100, 40 medium &gt; 80 medium in score, critical &lt; high &lt; low,
+unknown severity equals medium, and mixed-case severities match uppercase.</p>
+</div>
+
+<!-- ============================== VII. API ============================== -->
+<div class="sect">
+<h2>VII. API reference</h2>
+<p class="lead">FastAPI, served on <code>http://127.0.0.1:8000</code>. Live Swagger at
+<code>/docs</code>, OpenAPI at <code>/openapi.json</code>. Every route requires no
+authentication and applies no ownership filter. Scan-triggering routes are rate-limited.</p>
+
+<h3>1. Conventions</h3>
+<ul>
+<li>JSON for <code>/projects</code> bodies; <code>multipart/form-data</code> for the scan
+routes, because they carry files and form fields together.</li>
+<li>Errors are FastAPI's <code>{"detail": "..."}</code>; the frontend's client prefers that
+field and falls back to the status text.</li>
+<li><code>GET /scans/</code> and <code>GET /scans/{id}</code> return <i>different</i>
+shapes: the list uses <code>critical_count</code>, the detail uses flat
+<code>critical</code>. The frontend keeps two interfaces for this reason.</li>
+</ul>
+
+<h3>2. Scans</h3>
+
+<h4><span class="meth post">POST</span><code>/scans/git</code></h4>
+<table>
+<tr><td>Purpose</td><td>Clone a remote repository and queue a scan. Returns immediately.</td></tr>
+<tr><td>Request</td><td><code>multipart/form-data</code>: <code>project_id</code> (int, required), <code>repo_url</code> (string, required)</td></tr>
+<tr><td>Response 200</td><td><code>{"scan_id": 42, "status": "PENDING", "message": "Repository cloned. Scan queued in background."}</code></td></tr>
+<tr><td>Errors</td><td>404 project not found · 400 unsupported protocol / invalid URL / unresolvable hostname / internal address blocked / clone failure · 429 rate limit</td></tr>
+</table>
+
+<h4><span class="meth post">POST</span><code>/scans/upload</code></h4>
+<table>
+<tr><td>Purpose</td><td>Accept a zip archive against an existing project and queue a scan.</td></tr>
+<tr><td>Request</td><td><code>multipart/form-data</code>: <code>project_id</code> (int, required), <code>file</code> (File, required)</td></tr>
+<tr><td>Response 200</td><td><code>{"scan_id": 43, "status": "PENDING", "message": "Code ingested. Scan queued in background."}</code></td></tr>
+<tr><td>Errors</td><td>404 project not found · 400 filename does not end in <code>.zip</code> / size over 50 MB / invalid zip archive · 429 rate limit</td></tr>
+</table>
+<div class="note"><b>Frontend vs backend on archives.</b> The upload UI accepts
+<code>.zip</code> and <code>.tar.gz</code> and validates both client-side; the API accepts
+only <code>.zip</code>. A <code>.tar.gz</code> passes the client and is rejected by the
+server with 400.</div>
+
+<h4><span class="meth post">POST</span><code>/scans/demo</code></h4>
+<table>
+<tr><td>Purpose</td><td>Queue a scan of the deliberately vulnerable Juice-Shop repository. Creates the <code>Demo Project</code> row on first call and reuses it afterwards.</td></tr>
+<tr><td>Request</td><td>none</td></tr>
+<tr><td>Response 200</td><td><code>{"scan_id": 44, "status": "PENDING", "message": "Demo scan queued for Juice-Shop."}</code></td></tr>
+<tr><td>Errors</td><td>429 rate limit · 400 if the clone fails</td></tr>
+</table>
+
+<h4><span class="meth get">GET</span><code>/scans/</code></h4>
+<table>
+<tr><td>Purpose</td><td>List every scan newest-first, with score and severity counts. Drives the dashboard's aggregates in one call.</td></tr>
+<tr><td>Response</td><td><code>ScanOut[]</code>: <code>id, project_id, status, created_at, score, error_detail, critical_count, high_count, medium_count, low_count</code></td></tr>
+</table>
+
+<h4><span class="meth get">GET</span><code>/scans/{scan_id}</code></h4>
+<table>
+<tr><td>Purpose</td><td>Poll one scan: status, score, flat severity counts, runtime, error detail.</td></tr>
+<tr><td>Response</td><td><code>id, status, score, project_id, created_at (ISO), critical, high, medium, low, duration, error_detail</code></td></tr>
+<tr><td>Errors</td><td>404 scan not found</td></tr>
+</table>
+
+<h4><span class="meth get">GET</span><code>/scans/{scan_id}/findings</code></h4>
+<table>
+<tr><td>Purpose</td><td>List the normalized findings for a scan.</td></tr>
+<tr><td>Response</td><td>Array of <code>id, severity (capitalized), title, description, remediation, file, line, tool, status</code></td></tr>
+<tr><td>Notes</td><td><code>tool</code> is derived from <code>title</code>; <code>status</code> is the persisted triage state, defaulting to <code>open</code></td></tr>
+</table>
+
+<h4><span class="meth patch">PATCH</span><code>/scans/{scan_id}/findings/{finding_id}</code></h4>
+<table>
+<tr><td>Purpose</td><td>Persist a triage decision so it survives a reload.</td></tr>
+<tr><td>Request</td><td><code>application/json</code>: <code>{"triage": "resolved"}</code></td></tr>
+<tr><td>Allowed values</td><td><code>open</code>, <code>resolved</code>, <code>false_positive</code>, <code>accepted</code></td></tr>
+<tr><td>Response 200</td><td><code>{"id": 7, "scan_id": 42, "status": "resolved"}</code></td></tr>
+<tr><td>Errors</td><td>400 value outside the allowed set · 404 finding not found under that scan</td></tr>
+</table>
+<div class="note"><b>Why this endpoint exists.</b> Triage used to be client-only: the
+buttons worked, then vanished on reload, which made them worse than absent. The
+<code>triage_status</code> column and this route were added together.</div>
+
+<h4><span class="meth del">DELETE</span><code>/scans/{scan_id}</code></h4>
+<table>
+<tr><td>Purpose</td><td>Delete a scan and every finding attached to it.</td></tr>
+<tr><td>Response</td><td>204 no content</td></tr>
+<tr><td>Errors</td><td>404 scan not found</td></tr>
+<tr><td>Notes</td><td>Findings go first, then the scan: the FK has no <code>ON DELETE CASCADE</code>, so deleting the scan row alone used to raise a 500.</td></tr>
+</table>
+
+<h4><span class="meth get">GET</span><code>/scans/{scan_id}/export</code></h4>
+<table>
+<tr><td>Purpose</td><td>Generate and stream a PDF report for the scan.</td></tr>
+<tr><td>Response</td><td><code>application/pdf</code>, filename <code>scan_report_{scan_id}.pdf</code></td></tr>
+<tr><td>Content</td><td>Project name, overall score with the formula printed beneath it, severity distribution table, and one block per finding with file, line, triage state, and remediation</td></tr>
+<tr><td>Errors</td><td>404 scan not found · 500 if PDF generation fails</td></tr>
+</table>
+<p>The PDF is rendered from an inline HTML template by <code>xhtml2pdf</code>
+(<code>backend/app/engine/reporting.py</code>) into a named temp file that is streamed and
+left behind in <code>/tmp</code>. The frontend links to it with a plain anchor — no auth,
+no blob handling.</p>
+
+<h3>3. Projects</h3>
+
+<h4><span class="meth post">POST</span><code>/projects/</code></h4>
+<table>
+<tr><td>Purpose</td><td>Register a project so scans can be attached to it.</td></tr>
+<tr><td>Request</td><td><code>application/json</code>: <code>{"name": "billing-service", "repo_url": "https://github.com/org/repo"}</code></td></tr>
+<tr><td>Response 201</td><td><code>ProjectOut</code>: <code>id, name, repo_url, owner_id</code></td></tr>
+</table>
+
+<h4><span class="meth get">GET</span><code>/projects/</code></h4>
+<table>
+<tr><td>Purpose</td><td>List all projects, newest id first. The New Scan form reads this to avoid creating duplicate projects.</td></tr>
+<tr><td>Response</td><td><code>ProjectOut[]</code></td></tr>
+</table>
+
+<h4><span class="meth get">GET</span><code>/projects/{project_id}</code></h4>
+<table>
+<tr><td>Purpose</td><td>Fetch one project.</td></tr>
+<tr><td>Response</td><td><code>ProjectOut</code> · 404 if not found</td></tr>
+</table>
+
+<h4><span class="meth get">GET</span><code>/scans/project/{project_id}</code></h4>
+<table>
+<tr><td>Purpose</td><td>List the scans for one project, newest first.</td></tr>
+<tr><td>Response</td><td><code>ScanOut[]</code> · 404 if the project does not exist</td></tr>
+</table>
+
+<h4><span class="meth del">DELETE</span><code>/projects/{project_id}</code></h4>
+<table>
+<tr><td>Purpose</td><td>Delete a project together with all of its scans and findings.</td></tr>
+<tr><td>Response</td><td>204 no content</td></tr>
+<tr><td>Notes</td><td>Same CASCADE-absence fix as scan deletion: findings for the project's scans are deleted, then the scans, then the project.</td></tr>
+</table>
+
+<h3>4. Root and health</h3>
+<table class="kv">
+<tr><th>Route</th><th>Response</th></tr>
+<tr><td><span class="meth get">GET</span><code>/</code></td><td><code>{"message": "Welcome to the SVS API", "status": "online"}</code></td></tr>
+<tr><td><span class="meth get">GET</span><code>/health</code></td><td><code>{"status": "healthy"}</code> — used by the launcher's readiness probe</td></tr>
+<tr><td><span class="meth get">GET</span><code>/docs</code></td><td>Swagger UI, auto-generated from the routes above</td></tr>
+</table>
+
+<h3>5. Derived response fields</h3>
+<p>Two API responses contain values computed on the way out rather than stored:</p>
+<ul>
+<li><code>tool</code> on findings — derived from <code>vulnerability_type</code>.</li>
+<li><code>status</code> on findings — <code>triage_status</code> if set, else the string
+<code>"open"</code>; the column itself is <code>NOT NULL DEFAULT 'open'</code> so this is
+only observable on rows predating the migration.</li>
+</ul>
+</div>
+
+<!-- ============================== VIII. DATA MODEL ============================== -->
+<div class="sect">
+<h2>VIII. Data model</h2>
+<p class="lead">Four tables, PostgreSQL 15, SQLAlchemy 2.0 declarative. Integer primary
+keys. No foreign key carries <code>ON DELETE CASCADE</code>, which is why the delete
+endpoints remove children explicitly.</p>
+
+<h3>1. Tables</h3>
+
+<h4><code>users</code></h4>
+<table>
+<tr><th>Column</th><th>Type</th><th>Constraints</th></tr>
+<tr><td><code>id</code></td><td>Integer</td><td>primary key, indexed</td></tr>
+<tr><td><code>username</code></td><td>String</td><td>unique, indexed, not null</td></tr>
+<tr><td><code>email</code></td><td>String</td><td>unique, indexed, not null</td></tr>
+<tr><td><code>hashed_password</code></td><td>String</td><td>not null (unusable noise: <code>!</code> for the local row)</td></tr>
+<tr><td><code>created_at</code></td><td>DateTime</td><td>default <code>utcnow</code></td></tr>
+</table>
+
+<h4><code>projects</code></h4>
+<table>
+<tr><th>Column</th><th>Type</th><th>Constraints</th></tr>
+<tr><td><code>id</code></td><td>Integer</td><td>primary key, indexed</td></tr>
+<tr><td><code>name</code></td><td>String</td><td>not null</td></tr>
+<tr><td><code>repo_url</code></td><td>String</td><td>not null — for an upload, the archive filename</td></tr>
+<tr><td><code>owner_id</code></td><td>Integer</td><td>FK <code>users.id</code>, not null</td></tr>
+<tr><td><code>created_at</code></td><td>DateTime</td><td>default <code>utcnow</code></td></tr>
+</table>
+
+<h4><code>scans</code></h4>
+<table>
+<tr><th>Column</th><th>Type</th><th>Constraints</th></tr>
+<tr><td><code>id</code></td><td>Integer</td><td>primary key, indexed</td></tr>
+<tr><td><code>project_id</code></td><td>Integer</td><td>FK <code>projects.id</code>, not null</td></tr>
+<tr><td><code>status</code></td><td>String</td><td>not null; <code>PENDING</code>, <code>RUNNING</code>, <code>COMPLETED</code>, <code>FAILED</code></td></tr>
+<tr><td><code>created_at</code></td><td>DateTime</td><td>default <code>utcnow</code></td></tr>
+<tr><td><code>start_time</code></td><td>DateTime</td><td>default <code>utcnow</code>; set to the real start when the worker marks RUNNING</td></tr>
+<tr><td><code>end_time</code></td><td>DateTime</td><td>nullable; set in the worker's <code>finally</code></td></tr>
+<tr><td><code>duration_seconds</code></td><td>Float</td><td>nullable; derived from the two timestamps</td></tr>
+<tr><td><code>score</code></td><td>Integer</td><td>default 100</td></tr>
+<tr><td><code>critical_count</code> … <code>low_count</code></td><td>Integer</td><td>default 0; four columns</td></tr>
+<tr><td><code>error_detail</code></td><td>String</td><td>nullable; joined scanner failures or pipeline error, truncated to 500 chars</td></tr>
+</table>
+
+<h4><code>findings</code></h4>
+<table>
+<tr><th>Column</th><th>Type</th><th>Constraints</th></tr>
+<tr><td><code>id</code></td><td>Integer</td><td>primary key, indexed</td></tr>
+<tr><td><code>scan_id</code></td><td>Integer</td><td>FK <code>scans.id</code>, not null</td></tr>
+<tr><td><code>vulnerability_type</code></td><td>String</td><td>not null; e.g. <code>python.sql-injection</code>, <code>Secret-Leak</code></td></tr>
+<tr><td><code>severity</code></td><td>String</td><td>not null; <code>INFO</code>, <code>LOW</code>, <code>MEDIUM</code>, <code>HIGH</code>, <code>CRITICAL</code></td></tr>
+<tr><td><code>file_path</code></td><td>String</td><td>not null</td></tr>
+<tr><td><code>line_number</code></td><td>Integer</td><td>nullable; <code>0</code> for dependency findings</td></tr>
+<tr><td><code>description</code></td><td>Text</td><td>not null</td></tr>
+<tr><td><code>remediation</code></td><td>Text</td><td>nullable; the report view falls back to a fixed string</td></tr>
+<tr><td><code>triage_status</code></td><td>String(16)</td><td>not null, default <code>'open'</code>; added by startup migration</td></tr>
+<tr><td><code>created_at</code></td><td>DateTime</td><td>default <code>utcnow</code></td></tr>
+</table>
+
+<h3>2. Relationships</h3>
+<pre class="plain">users 1───* projects        (owner / back_populates "projects")
+projects 1───* scans        (project / back_populates "scans")
+scans 1───* findings        (scan / back_populates "findings")</pre>
+<p><code>models/__init__.py</code> imports every mapper so the string-based relationship
+targets (<code>"Project"</code>, <code>"Finding"</code>) resolve regardless of which module
+a process enters through — API, worker, or a standalone script.</p>
+
+<h3>3. Migration and startup</h3>
+<p>Schema creation is deliberately primitive and happens at import time in
+<code>app/main.py</code>:</p>
+<ol>
+<li><code>Base.metadata.create_all(bind=engine)</code> creates all four tables on a fresh
+database and is a no-op on an existing one.</li>
+<li>Because <code>create_all</code> will not <code>ALTER</code> an existing table, the one
+schema change since the initial release is applied explicitly and idempotently:
+<code>ALTER TABLE findings ADD COLUMN IF NOT EXISTS triage_status VARCHAR(16) NOT NULL
+DEFAULT 'open'</code>.</li>
+</ol>
+<p>There is no Alembic. Adding a column means adding a guarded <code>ALTER</code> here.</p>
+
+<h3>4. The users table without authentication</h3>
+<p>Auth was removed because SVS runs on the operator's own laptop and is not exposed
+publicly. The table survives for the FK and for the historical rows. The resolution
+function is deterministic: every request in the process's lifetime resolves to the same
+<code>local</code> user, so new projects get a stable owner and the rate limiter has one
+key. The <code>UserCreate</code>/<code>UserOut</code> schemas still exist in
+<code>schemas/user.py</code> but no route uses them.</p>
+
+<div class="drift"><b>Documentation drift.</b> The frontend's <i>Architecture Docs →
+Database Schema (ERD)</i> panel describes a schema that does not exist: UUID primary keys,
+a <code>role</code> column, JSONB severity counts, a <code>scanner</code> column, and
+"Prisma ORM". The real schema is the one above. That panel is stale spec text, not a
+description of the shipped database, and should not be trusted. See section XV.</div>
+</div>
+
+<!-- ============================== IX. FRONTEND ============================== -->
+<div class="sect">
+<h2>IX. Frontend</h2>
+<p class="lead">Vite + React 19 + TypeScript, Tailwind CSS v4, lucide-react icons. Five
+views, one stateful shell, no router library and no global store: navigation is a
+<code>activeTab</code> string in <code>App.tsx</code>.</p>
+
+<h3>1. Application shell and state</h3>
+<p><code>frontend/src/App.tsx</code> holds:</p>
+<ul>
+<li><code>scans</code> and <code>projects</code>, loaded together in one
+<code>Promise.all</code> and mapped through the adapter.</li>
+<li><code>activeScanId</code>, with <code>activeScan</code> falling back to the first row
+so the report tab has something to show.</li>
+<li>A polling effect: while any scan is <code>scanning</code>, a 2500 ms interval re-runs
+the load. The interval is cleared when nothing is in flight.</li>
+<li>Handlers for select-scan (fetches findings on demand), scan-complete, delete-scan, and
+triage update with an optimistic apply and a rollback on error.</li>
+</ul>
+<p>Findings are attached to a scan object only when that scan is opened. This keeps the
+dashboard to two list calls regardless of how many scans exist.</p>
+
+<h3>2. Views</h3>
+<table>
+<tr><th>View</th><th>What it shows</th><th>What it does</th></tr>
+<tr><td><code>DashboardView</code></td><td>Mean posture score with a letter grade, total critical and high counts across completed scans, scan count and how many passed at 100; a filterable scan list with per-scan severity pills and score badge</td><td>Search by project or source name; filter by status (complete / scanning) and by severity (critical / clean); open a report; delete a scan; refresh</td></tr>
+<tr><td><code>IngestScanView</code></td><td>Three ingestion modes: zip upload (drag-and-drop), Git URL, and the demo target; then a progress page with a five-stage indicator and a simulated terminal log</td><td>Validates extension and 50 MB size; runs a client-side SSRF guard list; deduplicates projects; dispatches the scan; polls <code>GET /scans/{id}</code> every 2 s up to 20 minutes; routes to the report on completion or surfaces <code>error_detail</code> on failure</td></tr>
+<tr><td><code>ScanReportView</code></td><td>Score gauge with grade and label, severity metrics with per-severity risk weights, filterable findings list; each finding expands to description, location, remediation, and triage buttons</td><td>Filter by severity, source tool, and triage state; search by type, file, CWE, or CVE; mark resolved / false positive / accept risk; export JSON (client-built) or the server PDF (anchor link)</td></tr>
+<tr><td><code>KnowledgeBaseView</code></td><td>Static dataset of 8 vulnerability classes with CWE ids, exploitation impact, vulnerable vs secure code, and a remediation checklist</td><td>Search and filter by SAST / Secrets / Dependencies; copy any code block</td></tr>
+<tr><td><code>ArchitectureDocsView</code></td><td>System architecture overview with a Mermaid topology, the 15-step build prompts, an API reference, and an ERD panel</td><td>Four sub-tabs; copy prompt text; download a project zip</td></tr>
+</table>
+
+<h3>3. Service layer</h3>
+<p><code>frontend/src/services/api.ts</code> is a thin fetch wrapper. It resolves
+<code>API_BASE_URL</code> from <code>import.meta.env.VITE_API_URL</code>, defaulting to
+<code>http://localhost:8000</code>. Its <code>request</code> helper unwraps FastAPI's
+<code>detail</code> field into a thrown <code>Error</code> carrying a <code>status</code>,
+treats 204 as <code>undefined</code>, and deliberately omits a Content-Type on multipart
+requests so the browser sets the boundary itself. <code>exportUrl</code> is a plain string,
+not a fetch, because the PDF endpoint needs no auth and returns a file.</p>
+
+<h3>4. Adapter layer</h3>
+<p><code>frontend/src/services/adapter.ts</code> exists because the API and the UI do not
+share a vocabulary:</p>
+<table>
+<tr><th>Mapping</th><th>Rule</th></tr>
+<tr><td>Status</td><td><code>COMPLETED</code> → <code>complete</code>, <code>FAILED</code> → <code>failed</code>, everything else (including <code>PENDING</code>) → <code>scanning</code></td></tr>
+<tr><td>Severity</td><td>lowercased and validated against the four known values, else <code>low</code></td></tr>
+<tr><td>Tool</td><td><code>Gitleaks</code> → <code>gitleaks</code>, <code>SCA Audit</code> → <code>dependency-audit</code>, else <code>semgrep</code></td></tr>
+<tr><td>Source type</td><td>Derived from the project's <code>repo_url</code> via a regex: a real URL means cloned, a bare filename means uploaded. The scan row carries no source-type field.</td></tr>
+<tr><td>Counts</td><td>The list and detail shapes (<code>critical_count</code> vs <code>critical</code>) are normalized into one <code>counts</code> object with a <code>total</code></td></tr>
+</table>
+<p>It also sets the fields the API does not have: <code>snippet</code> and
+<code>secureCodeExample</code> are always empty strings, because the scanned source tree
+is deleted when the worker finishes. The report view hides those panels when empty and
+explains why instead.</p>
+
+<h3>5. What the UI simulates</h3>
+<div class="warn"><b>The stage indicators and terminal log lines are an approximation.</b>
+The backend reports only <code>PENDING</code> / <code>RUNNING</code> /
+<code>COMPLETED</code> / <code>FAILED</code>; there is no per-stage status table. The
+ingest view advances its five stages on a timer while the worker is in flight and snaps to
+the real state when the status lands. The log lines are static strings describing what
+each stage does, not streamed tool output. The <code>Branch / Tag / Commit</code> field is
+advisory only: the backend has no branch column and always clones the default branch at
+depth 1. Per-stage status would need a stage table in the API.</div>
+
+<h3>6. Build and serving</h3>
+<p>The Dockerfile is a two-stage build: <code>node:20-alpine</code> runs
+<code>npm install</code> and <code>npm run build</code>, then the <code>dist</code> output
+is copied into <code>nginx:stable-alpine</code>. <code>VITE_API_URL</code> is a build
+argument, not a runtime variable, because Vite only exposes <code>VITE_</code>-prefixed
+vars to the bundle; the API origin is baked into the JavaScript. The compose file passes
+<code>FRONTEND_API_URL</code> in as that build arg.</p>
+<p><code>nginx.conf</code> has two behaviours worth knowing: static assets get
+<code>expires 1y</code> with an immutable cache header and a real 404 on a missing file
+(serving HTML for a missing <code>.js</code> would make the browser run HTML as JavaScript
+and the app would fail to boot with a syntax error); everything else falls back to
+<code>index.html</code> for the SPA. The dev server runs on port 3000 with
+<code>--host=0.0.0.0</code>, which conflicts with the compose frontend, so local
+development requires stopping the container first.</p>
+</div>
+
+<!-- ============================== X. CONFIGURATION ============================== -->
+<div class="sect">
+<h2>X. Configuration</h2>
+
+<h3>1. Backend settings</h3>
+<p><code>backend/app/core/config.py</code> — a <code>pydantic-settings</code>
+<code>BaseSettings</code> class reading <code>.env</code>:</p>
+<table class="kv">
+<tr><th>Setting</th><th>Default</th><th>Notes</th></tr>
+<tr><td><code>PROJECT_NAME</code></td><td><code>"Security Vulnerability Scanner"</code></td><td>Not rendered anywhere in the UI</td></tr>
+<tr><td><code>DATABASE_URL</code></td><td><code>postgresql://svs_user:svs_password@db:5432/svs_database</code></td><td>Overridden by compose to use the <code>.env</code> credentials</td></tr>
+<tr><td><code>UPLOAD_DIR</code></td><td><code>/tmp/svs_uploads</code></td><td>Must match the compose host bind; the scanners' mounts are built from it</td></tr>
+<tr><td><code>CORS_ORIGINS</code></td><td><code>"http://localhost:3000"</code></td><td>Comma-separated; compose sets both spellings</td></tr>
+<tr><td><code>REDIS_HOST</code></td><td><code>"redis"</code></td><td>Service name</td></tr>
+<tr><td><code>REDIS_PORT</code></td><td><code>6379</code></td><td>-</td></tr>
+</table>
+
+<h3>2. Environment file</h3>
+<p><code>SVS/.env</code> supplies the compose-level variables:</p>
+<table class="kv">
+<tr><th>Variable</th><th>Value</th><th>Used by</th></tr>
+<tr><td><code>SECRET_KEY</code></td><td>64-char hex string</td><td>Left over from the removed JWT auth; nothing reads it</td></tr>
+<tr><td><code>CORS_ORIGINS</code></td><td><code>http://localhost:3000</code></td><td>Overridden in compose by the two-spelling list</td></tr>
+<tr><td><code>POSTGRES_USER</code> / <code>POSTGRES_PASSWORD</code> / <code>POSTGRES_DB</code></td><td><code>svs_user</code> / <code>svs_password</code> / <code>svs_database</code></td><td>The <code>db</code> service and both <code>DATABASE_URL</code> overrides</td></tr>
+<tr><td><code>FRONTEND_API_URL</code></td><td><code>http://localhost:8000</code></td><td>Baked into the frontend bundle at build time</td></tr>
+</table>
+<p>The file carries its own warning that it must be regenerated per deployment and never
+committed. It is listed in <code>.gitignore</code>.</p>
+
+<h3>3. Frontend build configuration</h3>
+<ul>
+<li><code>vite.config.ts</code> — React and Tailwind plugins, an <code>@</code> path alias
+to the project root, and an HMR/watch override driven by <code>DISABLE_HMR</code> for use
+in AI-assisted editors where file watching causes flicker.</li>
+<li><code>package.json</code> — <code>lint</code> is <code>tsc --noEmit</code>. Dependencies
+include <code>motion</code> and <code>@google/genai</code>, which the current views do not
+import; they are carried over from the template the app was scaffolded from.</li>
+</ul>
+
+<h3>4. Rate limiting</h3>
+<p><code>backend/app/core/rate_limit.py</code> and the <code>RateLimiter</code> dependency
+in <code>api/deps.py</code>:</p>
+<ul>
+<li>5 requests per rolling 1-hour window per user, applied to
+<code>/scans/git</code>, <code>/scans/upload</code>, and <code>/scans/demo</code> only.</li>
+<li>Implemented with a Redis pipeline: <code>INCR</code> then <code>TTL</code>, and
+<code>EXPIRE</code> set only when the TTL reads <code>-1</code> (a key with no expiry),
+which is the first request of a window.</li>
+<li>Overrun raises 429 with a message naming the limit. The counter is keyed
+<code>rate_limit:user_&lt;id&gt;</code>, and because there is one user there is one key.</li>
+</ul>
+
+<h3>5. CORS</h3>
+<p>Origins come from <code>settings.CORS_ORIGINS</code> so a deployment does not need a code
+change to allow its own domain; an empty list still permits same-origin requests. Compose
+sets <code>http://localhost:3000,http://127.0.0.1:3000</code> because CORS compares origin
+strings and a browser reaching the app via either spelling must be allowed.</p>
+</div>
+
+<!-- ============================== XI. SECURITY ============================== -->
+<div class="sect">
+<h2>XI. Security posture</h2>
+<p class="lead">SVS runs untrusted code analysis on a laptop. Some boundaries are careful
+and deliberate; some exposures are accepted by the single-user deployment model. Both are
+listed, because a reader needs to know which is which.</p>
+
+<h3>1. Deliberate boundaries</h3>
+<ul>
+<li><b>Least-egress containers.</b> Every scanner runs in its own container with a memory
+cap (256–512 MB) and a 15-minute timeout. Gitleaks runs with no network at all; Semgrep and
+the CVE audit egress only to fetch the ruleset and the advisory database.</li>
+<li><b>Read-only mounts where possible.</b> Semgrep and pip-audit mount
+<code>/src:ro</code>. Only Gitleaks and npm mount read-write, and only because they must
+write a report or generate a lockfile.</li>
+<li><b>No execution of target code during install.</b> <code>--ignore-scripts</code> on
+every npm invocation means the scanner never runs the target repo's install or postinstall
+hooks — arbitrary code from untrusted input.</li>
+<li><b>SSRF validation server-side.</b> Scheme allowlist, netloc required, hostname
+resolved, and every resolved address rejected if private, loopback, link-local, multicast,
+or reserved. Unresolvable hostnames and unparseable addresses are rejected, not passed
+through. Cloud metadata (<code>169.254.169.254</code>) is covered by the link-local rule.</li>
+<li><b>SSRF guard client-side.</b> The Git URL field rejects localhost, RFC 1918 ranges,
+the metadata endpoint, and <code>file://</code> / <code>gopher://</code> before the request
+is made, with an inline warning.</li>
+<li><b>Size ceiling.</b> 50 MB on uploads, enforced in the frontend, the ingestion service,
+and the multipart body.</li>
+<li><b>Ephemeral storage.</b> The scan directory is <code>rmtree</code>'d in a
+<code>finally</code> on success and failure. The Gitleaks report, which contains matched
+secrets in cleartext, is deleted separately before that.</li>
+<li><b>Scanned code never leaves the host.</b> Only the ruleset and the advisory database
+traverse the network.</li>
+<li><b>Rate limiting.</b> 5 scans per hour per user.</li>
+</ul>
+
+<h3>2. Honest exposures</h3>
+<div class="warn"><b>These are real. They are accepted by the deployment model, not
+mitigated.</b>
+<ul>
+<li><b>The Docker socket is mounted into the backend and worker containers.</b> Anything
+that can reach the API can start arbitrary containers on the host with arbitrary mounts.
+This is how the scanners work; it is also full host compromise if the API is exposed.</li>
+<li><b>No authentication.</b> There is no token, session, or ownership check anywhere. If
+port 8000 is reachable, it is fully usable.</li>
+<li><b>PostgreSQL is published on <code>5432</code></b> with the credentials in
+<code>.env</code> (<code>svs_password</code>), which are the same ones used for local
+development and are not secret in any meaningful sense.</li>
+<li><b>The <code>SECRET_KEY</code> in <code>.env</code> is a leftover from the removed JWT
+authentication</b> and is read by nothing.</li>
+<li><b>Scanner images are unpinned</b> (<code>semgrep/semgrep</code>,
+<code>zricethezav/gitleaks:latest</code>, <code>node:18-alpine</code>). A hostile or
+compromised upstream tag would run inside the sandbox. Only <code>python:3.11-slim</code>
+and the Postgres/Redis images are version-anchored by the compose file.</li>
+<li><b>Zip extraction is not path-traversal hardened.</b> <code>ZipFile.extractall</code>
+honours absolute and <code>..</code> paths in recent Python, but a hostile archive is
+still the threat model this scanner is built to analyze, so treat untrusted zips as
+untrusted input.</li>
+</ul>
+</div>
+<p>The conclusion to write down: SVS is safe to run on your own laptop against code you
+already have, and unsafe to expose on a network.</p>
+
+<h3>3. SSRF controls, client and server</h3>
+<p>The two checks are independent and both run. The client's regex list rejects obvious
+internal spellings and gives immediate feedback; the server's DNS-resolution check is the
+one that actually matters, because it catches a hostname that resolves to an internal
+address regardless of how it is spelled. A public hostname with an internal A record is
+caught server-side and silently passes the client.</p>
+</div>
+
+<!-- ============================== XII. TESTING ============================== -->
+<div class="sect">
+<h2>XII. Testing</h2>
+
+<h3>1. Scoring unit tests</h3>
+<p><code>backend/tests/test_scoring.py</code> — six tests against an in-memory SQLite
+database, with <code>expected_score</code> recomputed from the same weights so the test
+cannot just restate the implementation:</p>
+<table>
+<tr><th>Test</th><th>Assertion</th></tr>
+<tr><td><code>test_calculate_score_no_findings</code></td><td>Clean repo scores exactly 100</td></tr>
+<tr><td><code>test_calculate_score_only_info</code></td><td>INFO findings cannot move the score: still 100</td></tr>
+<tr><td><code>test_calculate_score_mixed_findings</code></td><td>1 each of crit/high/med/low = 22 risk → 53, and all four count columns are set</td></tr>
+<tr><td><code>test_calculate_score_never_reaches_zero</code></td><td>10 criticals (100 risk) → 20, not 0</td></tr>
+<tr><td><code>test_score_stays_discriminative_at_scale</code></td><td>0 &lt; 80 mediums &lt; 40 mediums &lt; 100</td></tr>
+<tr><td><code>test_calculate_score_unknown_severity_falls_back_to_medium</code></td><td><code>UNKNOWN</code> and <code>NONE</code> score as 2 mediums → 76</td></tr>
+<tr><td><code>test_calculate_score_is_monotonic</code></td><td>Across seven severity profiles, more risk is always a strictly lower score</td></tr>
+</table>
+
+<h3>2. Pipeline integration test</h3>
+<p><code>backend/tests/test_pipeline.py</code> runs the real
+<code>ScannerService.run_full_scan</code> against the fixture and asserts all three engines
+fired: Gitleaks found a secret at high/critical, pip-audit found a vulnerable dependency in
+<code>requirements.txt</code>, and Semgrep found a code-level vulnerability. It requires
+the scanner images to be present, so it runs against Docker, not SQLite — the database is
+SQLite, but the containers are real.</p>
+
+<h3>3. Self-checks</h3>
+<p>Two modules carry executable <code>__main__</code> blocks that need no test harness:</p>
+<ul>
+<li><code>python -m app.engine.scoring</code> — clean is 100, the saturation property
+holds, severity ordering holds, unknown severity equals medium, case-insensitivity holds.</li>
+<li><code>python -m app.engine.normalizer</code> — the severity map, including a finding
+with no severity field landing in a scored bucket.</li>
+</ul>
+<p>Run the suite in the container:</p>
+<pre>docker compose exec backend python -m pytest tests/ -q</pre>
+
+<h3>4. The vulnerable fixture</h3>
+<p><code>backend/tests/fixtures/vulnerable_project/</code> is a tiny project built to make
+all three engines fire:</p>
+<table>
+<tr><th>File</th><th>Deliberate vulnerability</th><th>Engine that reports it</th></tr>
+<tr><td><code>app.py</code></td><td>SQL injection via f-string query construction (<code>SELECT ... WHERE username = '{username}'</code>)</td><td>Semgrep</td></tr>
+<tr><td><code>app.py</code></td><td>Hardcoded password <code>admin_password_123</code> and AWS key <code>AKIAIOSFODNN7EXAMPLE</code> in source</td><td>Gitleaks</td></tr>
+<tr><td><code>.env</code></td><td>AWS and Stripe API keys in cleartext</td><td>Gitleaks</td></tr>
+<tr><td><code>requirements.txt</code></td><td><code>requests==2.20.0</code> and <code>flask==0.12.1</code>, both carrying known CVEs</td><td>pip-audit</td></tr>
+</table>
+<p>For a larger demonstration, the demo endpoint scans OWASP Juice-Shop, a deliberately
+vulnerable Node.js application, which produces a realistic large finding set (hundreds of
+findings, score in single digits).</p>
+</div>
+
+<!-- ============================== XIII. OPERATIONS ============================== -->
+<div class="sect">
+<h2>XIII. Operations</h2>
+
+<h3>1. <code>run-svs.bat</code> step by step</h3>
+<ol>
+<li><b>Checks the Docker daemon.</b> If it is not up, starts Docker Desktop and polls
+<code>docker info</code> once a second for up to ~90 seconds. Without this the build fails
+with a confusing "daemon not running" npipe error.</li>
+<li><b>Builds the three images</b> — <code>docker compose build backend worker frontend</code>.
+Code is baked into the images, not bind-mounted, so this is how edits take effect. It costs
+seconds when nothing changed, because of layer caching.</li>
+<li><b>Starts the stack</b> — <code>docker compose up -d</code>.</li>
+<li><b>Waits for the API health probe</b> — curls <code>http://127.0.0.1:8000/health</code>
+every 2 seconds, up to 60 tries, because the backend runs the schema migration on boot.
+A timeout warns but continues.</li>
+<li><b>Opens the browser at <code>http://127.0.0.1:3000</code></b> and prints the URL
+table and the stop/log commands.</li>
+</ol>
+<p><code>start.bat</code> is the bare version: <code>docker compose up -d --build</code>,
+a 10-second wait, and the same browser open. Use it when Docker is already running and the
+health probe is not needed.</p>
+
+<h3>2. The <code>localhost</code> shadow on port 3000</h3>
+<div class="warn"><b>Use <code>127.0.0.1</code>, not <code>localhost</code>.</b> A VS Code
+PHP server already owns <code>[::1]:3000</code> on this machine, so <code>localhost:3000</code>
+resolves to that mock application instead of SVS. The launcher, the browser open, and the
+README all spell the address explicitly for this reason. This is an environment quirk of
+this laptop, not a property of the application.</div>
+
+<h3>3. Editing code: rebuild is mandatory</h3>
+<p>Backend and frontend code is copied into the images at build time. There is no volume
+mount of the source. Any edit to <code>backend/</code> or <code>frontend/</code> requires
+<code>docker compose build backend worker frontend</code> before <code>up -d</code> — which
+is exactly what <code>run-svs.bat</code> does. A plain <code>docker compose up -d</code>
+after an edit silently runs the old code. The only runtime-mounted paths are the Docker
+socket and <code>/tmp/svs_uploads</code>.</p>
+<p>For frontend hot reload instead, stop the compose frontend first (port conflict), then
+<code>cd frontend &amp;&amp; npm install &amp;&amp; npm run dev</code>, which serves on
+<code>http://127.0.0.1:3000</code> and talks to the API at <code>VITE_API_URL</code>.</p>
+
+<h3>4. Logs, stops, resets</h3>
+<pre>docker compose logs -f worker          # scan pipeline output
+docker compose logs -f backend         # API output
+docker compose ps                      # which containers are up
+docker compose down                    # stop everything; data persists
+docker compose down -v                 # stop and delete the database volume</pre>
+<table>
+<tr><th>URL</th><th>What it is</th></tr>
+<tr><td><code>http://127.0.0.1:3000</code></td><td>React frontend (nginx)</td></tr>
+<tr><td><code>http://127.0.0.1:8000</code></td><td>FastAPI API</td></tr>
+<tr><td><code>http://127.0.0.1:8000/docs</code></td><td>Swagger / OpenAPI documentation</td></tr>
+<tr><td><code>http://127.0.0.1:8000/health</code></td><td>Health check</td></tr>
+<tr><td><code>http://127.0.0.1:5432</code></td><td>PostgreSQL (published; see XI.2)</td></tr>
+</table>
+
+<h3>5. Database backup and restore</h3>
+<p><code>db_dummy_backup_20260921.sql</code> in the repository root is a full dump of the
+local development database, roughly 190 KB, containing the historical projects, scans, and
+findings created while the system was being built. Restore it into a fresh
+<code>postgres_data</code> volume with:</p>
+<pre>docker compose down -v
+docker compose up -d db
+# wait for pg_isready, then:
+docker exec -i svs_db psql -U svs_user -d svs_database &lt; db_dummy_backup_20260921.sql
+docker compose up -d</pre>
+<p>Because the schema is created at backend startup by <code>create_all</code>, restore the
+dump <i>before</i> bringing the backend up, or the tables will already exist and the dump
+will error on the duplicates.</p>
+</div>
+
+<!-- ============================== XIV. CI/CD ============================== -->
+<div class="sect">
+<h2>XIV. CI/CD pipeline</h2>
+<p><code>.github/workflows/ci-cd.yml</code>, triggered on push to <code>main</code> or
+<code>develop</code> and on pull requests to <code>main</code>:</p>
+<table>
+<tr><th>Job</th><th>Runs on</th><th>What it does</th></tr>
+<tr><td><code>lint</code></td><td>matrix over <code>[python, javascript]</code></td><td>Python: <code>pip install ruff</code> then <code>ruff check backend/</code>. JavaScript: <code>npm install</code> in <code>frontend/</code> then <code>npm run lint</code> (which is <code>tsc --noEmit</code>) falling back to <code>npx eslint .</code></td></tr>
+<tr><td><code>test</code></td><td>postgres:15 and redis service containers</td><td>Sets up Python 3.11, installs <code>requirements.txt</code> plus pytest and pytest-asyncio, runs <code>pytest tests/</code> against <code>svs_test</code>. Note the env sets <code>REDIS_URL</code>, which the application does not read (it uses <code>REDIS_HOST</code>/<code>REDIS_PORT</code>).</td></tr>
+<tr><td><code>build</code></td><td>only on push to <code>main</code>, needs lint + test</td><td>Logs into GHCR and pushes the backend image as <code>ghcr.io/&lt;repo&gt;/backend:latest</code> and <code>:&lt;sha&gt;</code></td></tr>
+<tr><td><code>deploy</code></td><td>only on <code>main</code>, needs build</td><td>POSTs to <code>secrets.RAILWAY_DEPLOY_WEBHOOK</code>. This is a stub: the comment says to replace it with the real webhook, and no frontend image is built or pushed.</td></tr>
+</table>
+<div class="note"><b>Only the backend image is published.</b> The pipeline never builds or
+pushes the frontend or worker images, and the compose file builds everything locally. Treat
+the registry path as plumbing for a deployment target that is not yet wired up.</div>
+</div>
+
+<!-- ============================== XV. LIMITATIONS ============================== -->
+<div class="sect">
+<h2>XV. Known limitations and documentation drift</h2>
+<p>Read this section before trusting anything that looks like it documents itself.</p>
+
+<h3>Functional limitations</h3>
+<ul>
+<li><b>No per-stage status.</b> The API reports four states. The ingest view's five stage
+indicators and its terminal log are a timed approximation, not real progress.</li>
+<li><b>The branch field does nothing.</b> <code>Repo.clone_from(..., depth=1)</code> takes
+no branch argument; the default branch is always what is scanned.</li>
+<li><b>No code snippets, CWE, or CVE columns.</b> The findings table has no place for them,
+and the scanned tree is deleted at the end of the scan, so the offending line is gone by
+the time anyone reads the report. The UI shows the file and line and explains the absence.</li>
+<li><b>No ownership or multi-tenancy.</b> Every project and scan belongs to the one local
+user; there is no way to partition data.</li>
+<li><b>Triage vocabulary is closed.</b> Four values; anything else is a 400.</li>
+<li><b>Dependent on the host Docker daemon.</b> If it is unreachable, scans fail with a
+plain <code>FAILED</code> and no scanner detail.</li>
+<li><b>Archive handling is asymmetric.</b> The UI advertises <code>.tar.gz</code>; the API
+accepts only <code>.zip</code>.</li>
+</ul>
+
+<h3>Documentation drift</h3>
+<div class="drift"><b>The in-app "Database Schema (ERD)" panel is wrong about the shipped
+schema.</b> <code>ArchitectureDocsView.tsx</code>, "Database Schema (ERD)" sub-tab,
+describes UUID primary keys, a <code>role</code> column on users, JSONB severity counts, a
+<code>scanner</code> column on findings, a <code>user_id</code> FK, and "Prisma ORM".
+None of that exists. The real schema is in section VIII. Do not edit code against that
+panel.</div>
+<ul>
+<li><b>The "15-Step AI Implementation Prompts" panel is the original build spec</b>,
+written before the code existed. It is accurate as provenance — it is the prompt series
+that produced this system — but it describes an intended system, including an
+authentication and tenant-isolation step that was later deliberately removed.</li>
+<li><b>The frontend navbar reads <code>v2.4</code></b> and the package.json reads
+<code>"version": "0.0.0"</code>. Neither is tracked or released; the badge is
+decorative.</li>
+<li><b>The API reference panel duplicates the real routes</b> and is currently accurate,
+but it is static data in <code>docsAndPrompts.ts</code>, not generated from the live
+OpenAPI. Prefer <code>http://127.0.0.1:8000/docs</code>.</li>
+<li><b>The "Download Full Project ZIP" link points at <code>/svs-security-scanner-project.zip</code></b>,
+which nginx does not serve; it 404s.</li>
+<li><b><code>frontend-cra-legacy/</code> is the superseded Create React App build.</b> It
+has its own Dockerfile and nginx config and is not referenced by the compose file. It is
+kept for reference only.</li>
+</ul>
+</div>
+
+<!-- ============================== XVI. FILE INVENTORY ============================== -->
+<div class="sect">
+<h2>XVI. File inventory</h2>
+<p>Every source file in the shipped system, with a one-line purpose. Paths are relative to
+the repository root.</p>
+
+<h3>Backend</h3>
+<table>
+<tr><th>Path</th><th>Purpose</th></tr>
+<tr><td><code>backend/app/main.py</code></td><td>FastAPI app, CORS, table creation and the triage migration at startup</td></tr>
+<tr><td><code>backend/app/database.py</code></td><td>SQLAlchemy engine, <code>SessionLocal</code>, <code>get_db</code> dependency</td></tr>
+<tr><td><code>backend/app/api/deps.py</code></td><td>Local-user resolution and the <code>RateLimiter</code> dependency</td></tr>
+<tr><td><code>backend/app/api/scans.py</code></td><td>All scan routes: dispatch, list, status, findings, triage, delete, PDF export</td></tr>
+<tr><td><code>backend/app/api/projects.py</code></td><td>Project CRUD and per-project scan listing</td></tr>
+<tr><td><code>backend/app/core/config.py</code></td><td>Pydantic settings with defaults</td></tr>
+<tr><td><code>backend/app/core/celery_app.py</code></td><td>Celery instance, Redis broker and backend, JSON serialization</td></tr>
+<tr><td><code>backend/app/core/rate_limit.py</code></td><td>Redis INCR/TTL rate limiter</td></tr>
+<tr><td><code>backend/app/engine/ingestion.py</code></td><td>SSRF validation, git clone and zip extraction into per-scan directories</td></tr>
+<tr><td><code>backend/app/engine/scanner.py</code></td><td>Pipeline orchestrator: runs the three scanners, scores, sets terminal status</td></tr>
+<tr><td><code>backend/app/engine/base_scanner.py</code></td><td>Abstract scanner, the shared container runner, <code>ScannerError</code>, <code>_save_finding</code></td></tr>
+<tr><td><code>backend/app/engine/semgrep_scanner.py</code></td><td>Semgrep container invocation and result mapping</td></tr>
+<tr><td><code>backend/app/engine/gitleaks_scanner.py</code></td><td>Gitleaks invocation, report-file readback, cleartext report deletion</td></tr>
+<tr><td><code>backend/app/engine/dependency_scanner.py</code></td><td>Language detection, pip-audit and npm audit paths</td></tr>
+<tr><td><code>backend/app/engine/normalizer.py</code></td><td>Severity maps and the common finding shape, with a self-check</td></tr>
+<tr><td><code>backend/app/engine/scoring.py</code></td><td>The scoring formula and weight table, with a self-check</td></tr>
+<tr><td><code>backend/app/engine/reporting.py</code></td><td>xhtml2pdf report template and generation</td></tr>
+<tr><td><code>backend/app/engine/tasks.py</code></td><td>The <code>run_security_scan</code> Celery task and scan-directory cleanup</td></tr>
+<tr><td><code>backend/app/models/base.py</code></td><td>Declarative base</td></tr>
+<tr><td><code>backend/app/models/user.py</code></td><td><code>users</code> table</td></tr>
+<tr><td><code>backend/app/models/project.py</code></td><td><code>projects</code> table and relationships</td></tr>
+<tr><td><code>backend/app/models/scan.py</code></td><td><code>scans</code> table: status, timing, score, counts, error detail</td></tr>
+<tr><td><code>backend/app/models/finding.py</code></td><td><code>findings</code> table including <code>triage_status</code></td></tr>
+<tr><td><code>backend/app/models/__init__.py</code></td><td>Registers all mappers so string relationships resolve</td></tr>
+<tr><td><code>backend/app/schemas/project.py</code></td><td><code>ProjectCreate</code>, <code>ProjectOut</code></td></tr>
+<tr><td><code>backend/app/schemas/scan.py</code></td><td><code>ScanOut</code> with the four count fields</td></tr>
+<tr><td><code>backend/app/schemas/user.py</code></td><td><code>UserCreate</code>, <code>UserOut</code> — unused by any route</td></tr>
+<tr><td><code>backend/Dockerfile</code></td><td>python:3.11-slim, installs build deps and git, runs uvicorn</td></tr>
+<tr><td><code>backend/requirements.txt</code></td><td>13 pinned dependencies</td></tr>
+<tr><td><code>backend/tests/test_scoring.py</code></td><td>Six scoring unit tests on SQLite</td></tr>
+<tr><td><code>backend/tests/test_pipeline.py</code></td><td>Full-pipeline integration test against the fixture</td></tr>
+<tr><td><code>backend/tests/fixtures/vulnerable_project/</code></td><td>Fixture with SQL injection, hardcoded secrets, and two vulnerable pins</td></tr>
+</table>
+
+<h3>Frontend</h3>
+<table>
+<tr><th>Path</th><th>Purpose</th></tr>
+<tr><td><code>frontend/src/main.tsx</code></td><td>React 19 root render in StrictMode</td></tr>
+<tr><td><code>frontend/src/App.tsx</code></td><td>Shell: state, polling, handlers, view switching</td></tr>
+<tr><td><code>frontend/src/types.ts</code></td><td>All domain types: Scan, Finding, Severity, triage states, KB item, prompt step</td></tr>
+<tr><td><code>frontend/src/services/api.ts</code></td><td>Fetch client, response interfaces, error unwrapping</td></tr>
+<tr><td><code>frontend/src/services/adapter.ts</code></td><td>API-to-UI mapping: status, severity, tool, source type, counts</td></tr>
+<tr><td><code>frontend/src/components/Navbar.tsx</code></td><td>Sticky nav with the five tabs, the version badge, the local-instance pill, mobile bar</td></tr>
+<tr><td><code>frontend/src/components/DashboardView.tsx</code></td><td>Metrics, filters, scan list with severity pills and score badges</td></tr>
+<tr><td><code>frontend/src/components/IngestScanView.tsx</code></td><td>Three ingestion modes, validation, simulated stage progress, terminal log</td></tr>
+<tr><td><code>frontend/src/components/ScanReportView.tsx</code></td><td>Score gauge, filters, expandable findings, triage, JSON and PDF export</td></tr>
+<tr><td><code>frontend/src/components/KnowledgeBaseView.tsx</td><td>Browsable vulnerability-class reference with vulnerable/secure code</td></tr>
+<tr><td><code>frontend/src/components/ArchitectureDocsView.tsx</code></td><td>Architecture, prompts, API, and ERD panels — the ERD panel is stale, see XV</td></tr>
+<tr><td><code>frontend/src/data/knowledgeBase.ts</code></td><td>8 static KB entries: SQLi, hardcoded secrets, deserialization, XSS, weak crypto, dependency CVEs, command injection, SSRF</td></tr>
+<tr><td><code>frontend/src/data/docsAndPrompts.ts</code></td><td>Architecture overview, Mermaid topology, endpoint list, 15 build prompts</td></tr>
+<tr><td><code>frontend/src/index.css</code></td><td>Tailwind v4 import and base styles</td></tr>
+<tr><td><code>frontend/index.html</code></td><td>HTML shell with the root div</td></tr>
+<tr><td><code>frontend/vite.config.ts</code></td><td>Plugins, path alias, HMR override for AI editors</td></tr>
+<tr><td><code>frontend/nginx.conf</code></td><td>SPA fallback, hashed-asset caching with real 404s</td></tr>
+<tr><td><code>frontend/Dockerfile</code></td><td>node:20 build stage, nginx serve stage, <code>VITE_API_URL</code> build arg</td></tr>
+<tr><td><code>frontend/package.json</code></td><td>Dependencies and scripts; <code>lint</code> is <code>tsc --noEmit</code></td></tr>
+</table>
+
+<h3>Root and infrastructure</h3>
+<table>
+<tr><th>Path</th><th>Purpose</th></tr>
+<tr><td><code>docker-compose.yml</code></td><td>Five services, the socket and upload mounts, build args, healthcheck</td></tr>
+<tr><td><code>run-svs.bat</code></td><td>One-command launcher: daemon check, build, up, health probe, browser</td></tr>
+<tr><td><code>start.bat</code></td><td>Bare <code>up --build</code> plus browser open</td></tr>
+<tr><td><code>.env</code></td><td>Deployment configuration; see X.2</td></tr>
+<tr><td><code>.github/workflows/ci-cd.yml</code></td><td>lint, test, build, deploy jobs</td></tr>
+<tr><td><code>.gitignore</code></td><td>Ignores <code>.env</code>, caches, node_modules, uploads</td></tr>
+<tr><td><code>db_dummy_backup_20260921.sql</code></td><td>Development database dump for restore, see XIII.5</td></tr>
+<tr><td><code>README.md</code></td><td>Quick start; the short version of sections I and XIII</td></tr>
+<tr><td><code>frontend-cra-legacy/</code></td><td>Superseded CRA build; not in the compose file</td></tr>
+</table>
+
+<hr>
+<p class="small">Generated 22 September 2026 from the code as of commit
+<code>e474377</code> ("chore: add spec and plan"). Every statement in this document was
+verified against the source files listed in section XVI. Where the in-app documentation
+disagrees with the code, this document follows the code.</p>
+</div>
+
+</body>
+</html>

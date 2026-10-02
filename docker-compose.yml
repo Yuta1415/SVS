@@ -1,0 +1,87 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: svs_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: svs_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    container_name: svs_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # localhost and 127.0.0.1 are the same machine, but CORS compares
+      # origin strings, so a browser on either spelling must be allowed.
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Host bind, not a named volume: the scanner sibling containers bind
+      # /tmp/svs_uploads/scan_N straight off the daemon's filesystem, so the
+      # worker and the scanners must agree on the same real path.
+      - /tmp/svs_uploads:/tmp/svs_uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build: ./backend
+    container_name: svs_worker
+    restart: always
+    command: celery -A app.core.celery_app worker --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/svs_uploads:/tmp/svs_uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Passed to the Dockerfile and baked into the JS bundle. Vite only
+        # exposes vars prefixed with VITE_, so this is not REACT_APP_*.
+        VITE_API_URL: ${FRONTEND_API_URL:-http://localhost:8000}
+    container_name: svs_frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

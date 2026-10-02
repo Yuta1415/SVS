@@ -1,0 +1,12 @@
+# Caches never belong in the production image. tests/ stays: the README's
+# documented test path runs pytest inside the running container.
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Local secrets and tooling noise.
+.env
+.venv/
+venv/
+.git/
+.gitignore
