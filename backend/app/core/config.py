@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Security Vulnerability Scanner"
     DATABASE_URL: str = "postgresql://svs_user:svs_password@db:5432/svs_database"

@@ -1,14 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+
+from .api import projects, scans
+from .core.config import settings
 from .database import engine
 from .models.base import Base
-from .models.user import User
-from .models.project import Project
-from .models.scan import Scan
-from .models.finding import Finding
-from .api import scans, projects
-from .core.config import settings
 
 # Create tables on startup (Initial Migration)
 Base.metadata.create_all(bind=engine)

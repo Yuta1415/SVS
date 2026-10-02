@@ -1,5 +1,6 @@
 import sqlite3
 
+
 def get_user(username):
     # VULNERABILITY: SQL Injection
     conn = sqlite3.connect('database.db')

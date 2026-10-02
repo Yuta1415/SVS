@@ -1,9 +1,10 @@
-import os
+from typing import Any
+
 from xhtml2pdf import pisa
-from typing import Dict, Any
+
 
 class ReportService:
-    def generate_report(self, scan_data: Dict[str, Any], output_path: str) -> bool:
+    def generate_report(self, scan_data: dict[str, Any], output_path: str) -> bool:
         """
         Generates a professional PDF security report from scan data.
         """

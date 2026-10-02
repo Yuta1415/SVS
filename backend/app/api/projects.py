@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
+from ..api.deps import get_local_user
 from ..database import get_db
+from ..models.finding import Finding
 from ..models.project import Project
 from ..models.scan import Scan
-from ..models.finding import Finding
 from ..models.user import User
-from ..api.deps import get_local_user
 from ..schemas.project import ProjectCreate, ProjectOut
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -68,4 +69,3 @@ async def delete_project(
 
     db.delete(project)
     db.commit()
-    return None

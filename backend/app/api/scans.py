@@ -1,17 +1,28 @@
-from fastapi import APIRouter, UploadFile, File, Depends, Form, HTTPException, status, Body
-from fastapi.responses import FileResponse, JSONResponse
 import tempfile
+
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    status,
+)
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session
+
+from ..api.deps import get_local_user
 from ..database import get_db
-from ..models.scan import Scan
+from ..engine.ingestion import ingestion_service
+from ..engine.reporting import ReportService
+from ..engine.tasks import run_security_scan
 from ..models.finding import Finding
 from ..models.project import Project
+from ..models.scan import Scan
 from ..models.user import User
-from ..engine.ingestion import ingestion_service
-from ..engine.tasks import run_security_scan
-from ..engine.reporting import ReportService
 from ..schemas.scan import ScanOut
-from ..api.deps import get_local_user
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 report_service = ReportService()
@@ -223,7 +234,6 @@ async def delete_scan(
     db.query(Finding).filter(Finding.scan_id == scan_id).delete(synchronize_session=False)
     db.delete(scan)
     db.commit()
-    return None
 
 @router.get("/{scan_id}/export")
 async def export_scan_report(
@@ -268,7 +278,7 @@ async def export_scan_report(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to generate PDF report")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred while generating the report: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred while generating the report: {e!s}")
 
     return FileResponse(
         path=tmp_path,

@@ -2,9 +2,9 @@
 # ("Project", "Finding", ...) resolve regardless of which module the
 # process enters through (API, Celery worker, script).
 from .base import Base
-from .user import User
+from .finding import Finding
 from .project import Project
 from .scan import Scan
-from .finding import Finding
+from .user import User
 
-__all__ = ["Base", "User", "Project", "Scan", "Finding"]
+__all__ = ["Base", "Finding", "Project", "Scan", "User"]

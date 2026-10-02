@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class ProjectCreate(BaseModel):
     name: str
     repo_url: str

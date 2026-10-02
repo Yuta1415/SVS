@@ -1,8 +1,11 @@
 import json
 import os
+
+from sqlalchemy.orm import Session
+
 from .base_scanner import BaseScanner, ScannerError
 from .normalizer import FindingNormalizer
-from sqlalchemy.orm import Session
+
 
 class GitleaksScanner(BaseScanner):
     def scan(self, scan_id: int, project_path: str, db: Session):

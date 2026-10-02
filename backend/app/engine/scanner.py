@@ -1,14 +1,16 @@
+from datetime import datetime
+
 import docker
 from sqlalchemy.orm import Session
-from ..models.scan import Scan
-from datetime import datetime
-from .semgrep_scanner import SemgrepScanner
-from .gitleaks_scanner import GitleaksScanner
-from .dependency_scanner import DependencyScanner
-from .iac_scanner import IacScanner
-from .base_scanner import ScannerError
-from .scoring import scoring_service
+
 from ..models.finding import Finding
+from ..models.scan import Scan
+from .base_scanner import ScannerError
+from .dependency_scanner import DependencyScanner
+from .gitleaks_scanner import GitleaksScanner
+from .iac_scanner import IacScanner
+from .scoring import scoring_service
+from .semgrep_scanner import SemgrepScanner
 
 # Severity order, used only to pick which of two duplicate findings survives.
 # An unknown value ranks with MEDIUM so it wins neither more nor less than a

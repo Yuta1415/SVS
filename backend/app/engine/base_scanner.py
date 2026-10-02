@@ -1,8 +1,10 @@
 import time
 from abc import ABC, abstractmethod
+
 import docker
 from requests.exceptions import ReadTimeout
 from sqlalchemy.orm import Session
+
 from ..models.finding import Finding
 
 
@@ -30,7 +32,6 @@ class BaseScanner(ABC):
         Run the scan and save findings to the database.
         Returns the number of findings found.
         """
-        pass
 
     # ponytail: a hung scanner used to block container.wait() forever, leaving
     # the scan stuck on RUNNING and the Celery task wedged with no cleanup.

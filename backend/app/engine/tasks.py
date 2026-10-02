@@ -1,11 +1,12 @@
 import logging
+import os
+import shutil
+
 from ..core.celery_app import celery_app
+from ..core.config import settings
 from ..database import SessionLocal
 from ..engine.scanner import scanner_service
 from ..models.scan import Scan
-from ..core.config import settings
-import os
-import shutil
 
 logger = logging.getLogger(__name__)
 

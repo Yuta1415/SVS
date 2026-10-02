@@ -1,10 +1,11 @@
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.models.base import Base
-from app.models.scan import Scan
-from app.models.finding import Finding
+
 from app.engine.scoring import ScoringService
+from app.models.base import Base
+from app.models.finding import Finding
+from app.models.scan import Scan
 
 # Test Database Setup
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"

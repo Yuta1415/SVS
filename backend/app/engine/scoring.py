@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
-from ..models.scan import Scan
+
 from ..models.finding import Finding
+from ..models.scan import Scan
+
 
 class ScoringService:
     # Weighted risk points per finding. A critical finding is worth 10 high-risk

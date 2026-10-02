@@ -1,14 +1,13 @@
-import os
 import io
-import zipfile
-import tempfile
+import os
 import socket
+import zipfile
 from urllib.parse import urlparse
-from git import Repo
-from sqlalchemy.orm import Session
-from ..models.project import Project
-from ..models.scan import Scan
+
 from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+
+from ..models.scan import Scan
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB compressed
 
@@ -133,7 +132,6 @@ class IngestionService:
         try:
             # Attempt shallow clone with timeout for slow networks
             import subprocess
-            import shutil
             os.makedirs(extract_path, exist_ok=True)
             
             # Clone with depth=1 to reduce download size
@@ -163,7 +161,7 @@ class IngestionService:
             db.commit()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to clone repository: {str(e)}"
+                detail=f"Failed to clone repository: {e!s}"
             )
 
         return scan

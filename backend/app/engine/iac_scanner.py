@@ -1,6 +1,8 @@
 import json
 import os
+
 from sqlalchemy.orm import Session
+
 from .base_scanner import BaseScanner, ScannerError
 from .normalizer import FindingNormalizer
 
