@@ -104,7 +104,7 @@ async def upload_zip(
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Validate file extension
-    if not file.filename.endswith(".zip"):
+    if not file.filename or not file.filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Only .zip archives are accepted")
 
     scan = await ingestion_service.ingest_zip(file, db, project_id)

@@ -71,8 +71,8 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
 
   const validateAndSetFile = (file: File) => {
     setFileError(null);
-    if (!file.name.endsWith('.zip') && !file.name.endsWith('.tar.gz')) {
-      setFileError('Validation Error: Only .zip and .tar.gz archives are supported.');
+    if (!file.name.endsWith('.zip')) {
+      setFileError('Validation Error: Only .zip archives are supported.');
       setSelectedFile(null);
       return;
     }
@@ -472,8 +472,8 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
             </div>
           )}
 
-          {/* Authorization gate. Applies to every ingest mode, including the
-              demo: all of them pull third-party code onto this host. */}
+          {/* Authorization gate: the pipeline clones or unpacks third-party code
+              on this host, so the submitter confirms authorization before dispatch. */}
           <label
             htmlFor="authorize-scan"
             className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-xs text-slate-300 cursor-pointer transition-colors hover:bg-slate-900/60"
@@ -490,28 +490,6 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
               the findings may include exposed secrets and credentials. I accept
               responsibility for remediating or reporting anything the pipeline
               surfaces.
-            </span>
-          </label>
-
-          {/* Consent gate (Gap 7): the pipeline clones or unpacks third-party code
-              on this host, so the submitter must confirm authorization before the
-              dispatch button is live. startScan re-checks it: a disabled button is
-              a UI hint, the API call is the trust boundary. */}
-          <label
-            htmlFor="input-consent"
-            className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 text-xs text-slate-300 cursor-pointer transition-colors hover:border-slate-700"
-          >
-            <input
-              id="input-consent"
-              type="checkbox"
-              checked={authorized}
-              onChange={(e) => setAuthorized(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-600 bg-slate-900 text-emerald-500 accent-emerald-500 focus:ring-1 focus:ring-emerald-500/40"
-            />
-            <span>
-              I confirm that I own this codebase, or have explicit authorization to
-              submit it for security analysis, and I accept that it will be unpacked
-              and scanned inside an isolated sandbox on this host.
             </span>
           </label>
 

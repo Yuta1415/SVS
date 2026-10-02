@@ -65,7 +65,7 @@ class FindingNormalizer:
         "info": "INFO",
     }
 
-    def _cwe_remediation(self, cwe: str, fallback: str) -> str:
+    def _cwe_remediation(self, cwe: str | None, fallback: str) -> str:
         """Prefer weakness-class guidance over the tool's own one-liner.
 
         Falls through to the Mitre definition for a class this table does not

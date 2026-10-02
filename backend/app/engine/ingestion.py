@@ -111,10 +111,14 @@ class IngestionService:
                 # extractall has written half a terabyte the disk is gone.
                 self._check_zip_bomb(content, zip_ref)
                 zip_ref.extractall(extract_path)
-        except zipfile.BadZipFile:
+        except HTTPException:
             db.delete(scan)
             db.commit()
-            raise HTTPException(status_code=400, detail="Invalid zip archive")
+            raise
+        except (zipfile.BadZipFile, Exception) as e:
+            db.delete(scan)
+            db.commit()
+            raise HTTPException(status_code=400, detail="Invalid zip archive") from e
 
         return scan
 
@@ -156,13 +160,17 @@ class IngestionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Repository clone timed out (over 5 minutes). The repository may be very large or network is slow."
             )
+        except HTTPException:
+            db.delete(scan)
+            db.commit()
+            raise
         except Exception as e:
             db.delete(scan)
             db.commit()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to clone repository: {e!s}"
-            )
+            ) from e
 
         return scan
 

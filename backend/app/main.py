@@ -13,13 +13,17 @@ Base.metadata.create_all(bind=engine)
 # create_all will not ALTER an existing table, so schema changes since the
 # initial release are applied here, idempotently. ADD COLUMN IF NOT EXISTS is
 # a no-op on an already-migrated database.
-with engine.begin() as conn:
-    conn.execute(
-        text("ALTER TABLE findings ADD COLUMN IF NOT EXISTS triage_status VARCHAR(16) NOT NULL DEFAULT 'open'")
-    )
-    conn.execute(
-        text("ALTER TABLE findings ADD COLUMN IF NOT EXISTS cwe VARCHAR(16)")
-    )
+if "sqlite" not in str(engine.url):
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("ALTER TABLE findings ADD COLUMN IF NOT EXISTS triage_status VARCHAR(16) NOT NULL DEFAULT 'open'")
+            )
+            conn.execute(
+                text("ALTER TABLE findings ADD COLUMN IF NOT EXISTS cwe VARCHAR(16)")
+            )
+    except Exception:
+        pass
 
 app = FastAPI(title="Security Vulnerability Scanner (SVS) API")
 
