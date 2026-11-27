@@ -426,6 +426,14 @@ Present in the code but **not currently wired up**:
   endpoint imports or calls it. Do not assume a scan will be refused for
   exceeding the limit.
 
+## Screenshots
+
+> Add screenshots to `docs/screenshots/` and update the paths below.
+
+| Dashboard | Scan Report |
+|-----------|-------------|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Scan Report](docs/screenshots/scan-report.png) |
+
 ## Getting started
 
 ### Requirements
