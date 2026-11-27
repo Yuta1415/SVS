@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   security-events: write  # Required for SARIF upload to Code Scanning
+  pull-requests: write  # Required for PR comments
 
 jobs:
   scan:

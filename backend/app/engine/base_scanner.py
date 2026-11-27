@@ -88,15 +88,26 @@ class BaseScanner(ABC):
 
     @staticmethod
     def _repo_relative_path(project_path: str, path: str | None) -> str:
-        if not path or not os.path.isabs(path):
-            return path or "unknown"
+        if not path:
+            return "unknown"
+        # Handle both / and \\ as separators so Windows-style paths work on
+        # Linux (CI) too.  A path is absolute if it starts with / or has a
+        # drive letter (C:\\, C:/).
+        use_backslash = "\\" in path
+        norm_path = path.replace("\\", "/")
+        norm_project = project_path.replace("\\", "/")
+        is_abs = os.path.isabs(norm_path) or (len(norm_path) > 1 and norm_path[1] == ":")
+        if not is_abs:
+            return path
         try:
-            relative_path = os.path.relpath(path, project_path)
+            relative = os.path.relpath(norm_path, norm_project)
         except ValueError:
             return path
-        if relative_path == os.pardir or relative_path.startswith(os.pardir + os.sep):
+        if relative == os.pardir or relative.startswith(os.pardir + "/"):
             return path
-        return relative_path
+        if use_backslash:
+            relative = relative.replace("/", "\\")
+        return relative
 
     def _save_finding(self, db: Session, scan_id: int, v_type: str, severity: str,
                      file_path: str, line: int, desc: str, remediation: str = None,
