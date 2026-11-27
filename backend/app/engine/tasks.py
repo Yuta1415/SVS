@@ -12,11 +12,15 @@ from ..models.scan import Scan
 logger = logging.getLogger(__name__)
 
 # Celery is optional: if Redis is unreachable, fall back to in-process threads.
-# This keeps local dev working without a broker.
+# This keeps local dev working without a broker. Use a short timeout and
+# resolve the hostname first to avoid DNS hangs.
 _USE_CELERY = False
 try:
+    import socket
+    socket.getaddrinfo(settings.REDIS_HOST, settings.REDIS_PORT)
     import redis
-    _r = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, socket_timeout=1)
+    _r = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT,
+                      socket_connect_timeout=1, socket_timeout=1)
     _r.ping()
     _USE_CELERY = True
 except Exception:

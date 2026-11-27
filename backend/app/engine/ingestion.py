@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import io
 import logging
 import os
@@ -117,7 +118,10 @@ class IngestionService:
             raise HTTPException(status_code=400, detail="File size exceeds 50MB limit")
 
         # Create scan record first to get ID
-        scan = Scan(project_id=project_id, status="PENDING")
+        # Compute content hash for scan caching
+        content_hash = hashlib.sha256(bytes(content)).hexdigest()
+
+        scan = Scan(project_id=project_id, status="PENDING", content_hash=content_hash)
         db.add(scan)
         db.commit()
         db.refresh(scan)
@@ -196,6 +200,18 @@ class IngestionService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Failed to clone repository: {error_msg}"
                 )
+
+            # Get commit SHA for scan caching
+            try:
+                sha_result = subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=extract_path, capture_output=True, text=True, timeout=10,
+                )
+                if sha_result.returncode == 0 and sha_result.stdout.strip():
+                    scan.content_hash = sha_result.stdout.strip()
+                    db.commit()
+            except Exception:
+                pass
         except subprocess.TimeoutExpired:
             self._discard_failed_ingestion(scan, extract_path, db)
             raise HTTPException(

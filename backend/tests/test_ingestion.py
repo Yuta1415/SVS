@@ -125,10 +125,12 @@ def test_git_ingestion_uses_requested_branch(db, tmp_path, monkeypatch):
     ))
 
     assert scan.status == "PENDING"
-    assert commands == [[
+    assert commands[0] == [
         "git", "clone", "--depth=1", "--branch", "release/1.0",
         "https://example.test/repo.git", ".",
-    ]]
+    ]
+    # A rev-parse HEAD call follows to compute the content hash for caching.
+    assert commands[1][:2] == ["git", "rev-parse"]
 
 
 def test_failed_git_clone_cleans_up_scan_and_directory(db, tmp_path, monkeypatch):

@@ -114,6 +114,41 @@ async def upload_zip(
 
     scan = await ingestion_service.ingest_zip(file, db, project_id)
 
+    # Check for cached scan with same content hash
+    if scan.content_hash:
+        cached = db.query(Scan).filter(
+            Scan.project_id == project_id,
+            Scan.content_hash == scan.content_hash,
+            Scan.status == "COMPLETED",
+            Scan.id != scan.id,
+        ).order_by(Scan.created_at.desc()).first()
+        if cached:
+            # Clone findings from cached scan
+            for f in cached.findings:
+                db.add(Finding(
+                    scan_id=scan.id,
+                    vulnerability_type=f.vulnerability_type,
+                    severity=f.severity,
+                    file_path=f.file_path,
+                    line_number=f.line_number,
+                    description=f.description,
+                    remediation=f.remediation,
+                    cwe=f.cwe,
+                    triage_status=f.triage_status,
+                ))
+            scan.status = "COMPLETED"
+            scan.score = cached.score
+            scan.critical_count = cached.critical_count
+            scan.high_count = cached.high_count
+            scan.medium_count = cached.medium_count
+            scan.low_count = cached.low_count
+            scan.duration_seconds = 0
+            db.commit()
+            # Clean up extracted dir
+            import shutil
+            shutil.rmtree(os.path.join(ingestion_service.upload_dir, f"scan_{scan.id}"), ignore_errors=True)
+            return {"scan_id": scan.id, "status": scan.status, "message": "Cached scan returned (identical source)."}
+
     run_security_scan(scan.id, project_id)
 
     return {"scan_id": scan.id, "status": scan.status, "message": "Code ingested. Scan queued in background."}
@@ -132,6 +167,39 @@ async def ingest_git(
         raise HTTPException(status_code=404, detail="Project not found")
 
     scan = await ingestion_service.ingest_git(repo_url, db, project_id, branch)
+
+    # Check for cached scan with same content hash
+    if scan.content_hash:
+        cached = db.query(Scan).filter(
+            Scan.project_id == project_id,
+            Scan.content_hash == scan.content_hash,
+            Scan.status == "COMPLETED",
+            Scan.id != scan.id,
+        ).order_by(Scan.created_at.desc()).first()
+        if cached:
+            for f in cached.findings:
+                db.add(Finding(
+                    scan_id=scan.id,
+                    vulnerability_type=f.vulnerability_type,
+                    severity=f.severity,
+                    file_path=f.file_path,
+                    line_number=f.line_number,
+                    description=f.description,
+                    remediation=f.remediation,
+                    cwe=f.cwe,
+                    triage_status=f.triage_status,
+                ))
+            scan.status = "COMPLETED"
+            scan.score = cached.score
+            scan.critical_count = cached.critical_count
+            scan.high_count = cached.high_count
+            scan.medium_count = cached.medium_count
+            scan.low_count = cached.low_count
+            scan.duration_seconds = 0
+            db.commit()
+            import shutil
+            shutil.rmtree(os.path.join(ingestion_service.upload_dir, f"scan_{scan.id}"), ignore_errors=True)
+            return {"scan_id": scan.id, "status": scan.status, "message": "Cached scan returned (identical source)."}
 
     run_security_scan(scan.id, project_id)
 
@@ -290,6 +358,35 @@ async def export_scan_report(
         filename=f"scan_report_{scan_id}.pdf",
         media_type="application/pdf",
         background=BackgroundTask(os.unlink, tmp_path),
+    )
+
+
+@router.get("/{scan_id}/export/sbom")
+async def export_scan_sbom(
+    scan_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_local_user),
+):
+    """Export the Software Bill of Materials (SBOM) generated during the scan."""
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    sbom_path = os.path.join(ingestion_service.upload_dir, f"scan_{scan_id}", ".svs_sbom.json")
+    # Also check if scan dir was cleaned up (scan completed) — try alternate path
+    if not os.path.exists(sbom_path):
+        # Scan dirs are cleaned after completion; SBOM may have been removed.
+        # Return 404 with helpful message.
+        raise HTTPException(
+            status_code=404,
+            detail="SBOM not available. SBOM generation requires syft to be installed "
+                   "and runs during the scan. The scan directory may have been cleaned up."
+        )
+
+    return FileResponse(
+        path=sbom_path,
+        filename=f"sbom_scan_{scan_id}.spdx.json",
+        media_type="application/json",
     )
 
 # SARIF level is a closed vocabulary (none/note/warning/error), so the SVS
