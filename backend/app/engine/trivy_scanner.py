@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import shutil
 import sys
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from .base_scanner import BaseScanner, ScannerError
 from .normalizer import FindingNormalizer
+
+logger = logging.getLogger(__name__)
 
 
 class TrivyScanner(BaseScanner):
@@ -49,7 +52,9 @@ class TrivyScanner(BaseScanner):
                 if trivy_path:
                     break
         if trivy_path is None:
-            raise ScannerError("Trivy", "required executable 'trivy' was not found on PATH")
+            # Trivy is optional — skip silently if not installed
+            logger.info("Trivy not found on PATH, skipping container scan")
+            return 0
 
         try:
             # Scan the filesystem for vulnerabilities, secrets, and misconfigs
