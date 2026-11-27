@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 from sqlalchemy.orm import Session
 
@@ -13,9 +14,26 @@ class GitleaksScanner(BaseScanner):
         report_name = ".svs_gitleaks_report.json"
         report_path = os.path.join(project_path, report_name)
         try:
+            # Resolve gitleaks binary: check PATH, then venv Scripts, then winget
+            gitleaks_exe = shutil.which("gitleaks")
+            if gitleaks_exe is None:
+                for candidate_dir in (
+                    os.path.dirname(sys.executable),
+                    os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links"),
+                ):
+                    for ext in ("", ".exe"):
+                        candidate = os.path.join(candidate_dir, "gitleaks" + ext)
+                        if os.path.isfile(candidate):
+                            gitleaks_exe = candidate
+                            break
+                    if gitleaks_exe:
+                        break
+            if gitleaks_exe is None:
+                raise ScannerError("Gitleaks", "required executable 'gitleaks' was not found on PATH")
+
             # Scan git history when available (catches secrets in old commits),
             # falling back to working-tree-only scan for non-git directories.
-            command = ["gitleaks", "detect", "--source", project_path,
+            command = [gitleaks_exe, "detect", "--source", project_path,
                        "--report-format", "json", "--report-path", report_path, "--no-banner"]
             if not os.path.isdir(os.path.join(project_path, ".git")):
                 command.insert(2, "--no-git")

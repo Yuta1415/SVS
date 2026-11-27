@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import sys
 
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,18 @@ class TrivyScanner(BaseScanner):
 
         # Check if trivy is installed
         trivy_path = shutil.which("trivy")
+        if trivy_path is None:
+            for candidate_dir in (
+                os.path.dirname(sys.executable),
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links"),
+            ):
+                for ext in ("", ".exe"):
+                    candidate = os.path.join(candidate_dir, "trivy" + ext)
+                    if os.path.isfile(candidate):
+                        trivy_path = candidate
+                        break
+                if trivy_path:
+                    break
         if trivy_path is None:
             raise ScannerError("Trivy", "required executable 'trivy' was not found on PATH")
 

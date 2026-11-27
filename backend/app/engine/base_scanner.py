@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 
 from sqlalchemy.orm import Session
@@ -37,8 +38,27 @@ class BaseScanner(ABC):
         """Run a local scanner and return stdout, preserving useful failures."""
         timeout = timeout or self.DEFAULT_TIMEOUT
         executable = command[0]
-        if not os.path.isabs(executable) and shutil.which(executable) is None:
+        # Resolve the executable: check PATH first, then fall back to the
+        # venv's Scripts directory (so local dev works without run-svs.bat).
+        resolved = shutil.which(executable)
+        if resolved is None and not os.path.isabs(executable):
+            search_dirs = [
+                os.path.dirname(sys.executable),
+                os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WinGet", "Links"),
+                os.path.join(os.environ.get("ProgramFiles", ""), "Git", "cmd"),
+            ]
+            for search_dir in search_dirs:
+                for candidate_name in (executable, executable + ".exe", executable + ".cmd", executable + ".bat"):
+                    candidate = os.path.join(search_dir, candidate_name)
+                    if os.path.isfile(candidate):
+                        resolved = candidate
+                        break
+                if resolved:
+                    break
+        if resolved is None and not os.path.isabs(executable):
             raise ScannerError(tool, f"required executable '{executable}' was not found on PATH")
+        if resolved is not None:
+            command = [resolved] + list(command[1:])
 
         try:
             result = subprocess.run(
