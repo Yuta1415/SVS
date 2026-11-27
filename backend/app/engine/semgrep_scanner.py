@@ -1,4 +1,5 @@
 import json
+import os
 import re
 
 from sqlalchemy.orm import Session
@@ -48,25 +49,59 @@ class SemgrepScanner(BaseScanner):
             details = details[:5] + [f"{len(details) - 5} additional Semgrep warnings omitted"]
         return " | ".join(details)[:2000]
 
+    # Language-to-ruleset mapping for targeted scanning
+    LANGUAGE_RULESETS = {
+        ".py": "p/python",
+        ".js": "p/javascript",
+        ".jsx": "p/javascript",
+        ".ts": "p/typescript",
+        ".tsx": "p/typescript",
+        ".go": "p/go",
+        ".java": "p/java",
+        ".c": "p/c",
+        ".cpp": "p/cpp",
+        ".cc": "p/cpp",
+        ".cxx": "p/cpp",
+        ".rb": "p/ruby",
+        ".php": "p/php",
+        ".rs": "p/rust",
+        ".kt": "p/kotlin",
+        ".swift": "p/swift",
+        ".scala": "p/scala",
+        ".cs": "p/csharp",
+    }
+
+    def _detect_languages(self, project_path: str) -> list[str]:
+        """Detect which language rulesets to use based on file extensions."""
+        langs = set()
+        for root, _, files in os.walk(project_path):
+            if os.path.basename(root) in {".git", "node_modules", "vendor", "venv", ".venv", "__pycache__"}:
+                continue
+            for name in files:
+                ext = os.path.splitext(name)[1].lower()
+                ruleset = self.LANGUAGE_RULESETS.get(ext)
+                if ruleset:
+                    langs.add(ruleset)
+        return sorted(langs)
+
     def scan(self, scan_id: int, project_path: str, db: Session):
         try:
-            # p/default is a pinned registry ruleset: it downloads once, is
-            # cached locally, and needs no semgrep.dev login (unlike
-            # --config=auto, which returns empty rules without auth). Metrics
-            # telemetry does not include scanned code, which stays on the host,
-            # but turning it off keeps that promise explicit.
+            # Detect languages and use targeted rulesets instead of one broad
+            # ruleset. Falls back to p/security-audit if no languages detected.
+            langs = self._detect_languages(project_path)
+            configs = [f"--config={rs}" for rs in langs] if langs else ["--config=p/security-audit"]
+
             output = self._run_command(
                 "Semgrep",
                 [
                     "semgrep", "scan", "--json",
-                    "--config=p/security-audit", "--metrics=off",
+                    "--metrics=off",
                     "--disable-version-check",
                     "--timeout=30",
                     "--exclude=tests/", "--exclude=test/",
                     "--exclude=node_modules/", "--exclude=vendor/",
                     "--exclude=*.min.js", "--exclude=*.generated.*",
-                    project_path,
-                ],
+                ] + configs + [project_path],
                 timeout=1800,  # 30 minutes for slow repos
                 accept_exit_codes=(0, 1),
             )

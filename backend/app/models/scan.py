@@ -29,5 +29,9 @@ class Scan(Base):
     error_detail = Column(String, nullable=True)
     warning_detail = Column(Text, nullable=True)
 
+    # Content hash of the scanned source (zip hash or git commit SHA).
+    # Used to skip re-scanning identical source.
+    content_hash = Column(String(64), nullable=True, index=True)
+
     project = relationship("Project", back_populates="scans")
     findings = relationship("Finding", back_populates="scan")
