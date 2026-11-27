@@ -75,9 +75,14 @@ export const ScanReportView: React.FC<ScanReportViewProps> = ({
   };
 
   const handleCopyCode = (id: string, code: string) => {
-    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-      navigator.clipboard.writeText(code).catch(() => fallbackCopy(code));
-    } else {
+    try {
+      const cb = (navigator as any).clipboard;
+      if (cb && typeof cb.writeText === 'function') {
+        cb.writeText(code).catch(() => fallbackCopy(code));
+      } else {
+        fallbackCopy(code);
+      }
+    } catch {
       fallbackCopy(code);
     }
     setCopiedSnippetId(id);
@@ -85,14 +90,18 @@ export const ScanReportView: React.FC<ScanReportViewProps> = ({
   };
 
   const fallbackCopy = (text: string) => {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); } catch { /* ignore */ }
-    document.body.removeChild(ta);
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch {
+      // Clipboard not available — silently ignore
+    }
   };
 
   const handleExportJSON = () => {
