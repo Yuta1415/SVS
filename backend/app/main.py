@@ -1,7 +1,9 @@
+import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text
@@ -56,6 +58,22 @@ frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", 
 
 # Origins come from settings so a deploy does not need a code change to allow
 # its own domain. An empty list still permits same-origin requests.
+# Configure structured logging with request IDs
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] [%(request_id)s] %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger("svs")
+
+# Add request ID filter
+class RequestIDFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = getattr(record, "request_id", "-")
+        return True
+
+logging.getLogger().addFilter(RequestIDFilter())
+
 origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 
 # Configure CORS
@@ -66,6 +84,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request ID middleware: every request gets a unique ID that propagates
+# through logs for tracing.
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 
 # Include Routers
 app.include_router(projects.router)
