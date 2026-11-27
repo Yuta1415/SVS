@@ -1,6 +1,6 @@
 # Importing the package registers every mapper so string relationships
 # ("Project", "Finding", ...) resolve regardless of which module the
-# process enters through (API, Celery worker, script).
+# process enters through (API, local worker, script).
 from .base import Base
 from .finding import Finding
 from .project import Project

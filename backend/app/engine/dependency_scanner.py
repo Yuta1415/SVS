@@ -1,5 +1,7 @@
 import json
 import os
+import shutil
+import sys
 
 from sqlalchemy.orm import Session
 
@@ -8,27 +10,47 @@ from .normalizer import FindingNormalizer
 
 
 class DependencyScanner(BaseScanner):
-    def scan(self, scan_id: int, project_path: str, db: Session):
-        # Detect language
-        if os.path.exists(os.path.join(project_path, "requirements.txt")):
-            return self._scan_python(scan_id, project_path, db)
-        elif os.path.exists(os.path.join(project_path, "package.json")):
-            return self._scan_javascript(scan_id, project_path, db)
-        return 0
+    @staticmethod
+    def _npm_command(args: list[str]) -> list[str]:
+        npm_path = shutil.which("npm")
+        if npm_path is None:
+            raise ScannerError("SCA Audit", "required executable 'npm' was not found on PATH")
+        if os.name != "nt" or not npm_path.lower().endswith((".cmd", ".bat")):
+            return [npm_path, *args]
 
-    def _scan_python(self, scan_id: int, project_path: str, db: Session):
+        node_path = shutil.which("node")
+        npm_cli = os.path.join(os.path.dirname(npm_path), "node_modules", "npm", "bin", "npm-cli.js")
+        if node_path is None or not os.path.isfile(npm_cli):
+            raise ScannerError("SCA Audit", "could not resolve Node.js and npm's CLI script")
+        return [node_path, npm_cli, *args]
+
+    def scan(self, scan_id: int, project_path: str, db: Session):
+        skip_dirs = {".git", "node_modules", ".venv", "venv", "__pycache__"}
+        manifests = []
+        for root, dirs, files in os.walk(project_path):
+            dirs[:] = [name for name in dirs if name not in skip_dirs]
+            if "requirements.txt" in files:
+                manifests.append(("python", os.path.join(root, "requirements.txt")))
+            if "package.json" in files:
+                manifests.append(("javascript", os.path.join(root, "package.json")))
+
+        findings_count = 0
+        for manifest_type, manifest_path in manifests:
+            if manifest_type == "python":
+                findings_count += self._scan_python(scan_id, manifest_path, project_path, db)
+            else:
+                findings_count += self._scan_javascript(scan_id, manifest_path, project_path, db)
+        return findings_count
+
+    def _scan_python(self, scan_id: int, requirements_path: str, project_path: str, db: Session):
         try:
-            # pip-audit with no arguments audits the *container's* environment,
-            # not the project, so -r requirements.txt is required.
-            output = self._run_container(
-                image="python:3.11-slim@sha256:da047cb8f9d1d98e5c070f5300ba9f7274e33b8fc0e5be5ed88740aed1b95ba9",
-                command=["sh", "-c",
-                         "pip install --quiet pip-audit >/dev/null 2>&1 && "
-                         "pip-audit -r requirements.txt --format json"],
-                volumes=[f"/tmp/svs_uploads/scan_{scan_id}:/src:ro"],
-                network_disabled=False, # pip-audit needs network to fetch CVE database
-                mem_limit="512m",
-                working_dir="/src",
+            output = self._run_command(
+                "SCA Audit",
+                [sys.executable, "-m", "pip_audit", "-r", requirements_path, "--format", "json"],
+                # pip-audit exits 1 when it finds a vulnerability; that is a
+                # successful report, not a broken scanner. Exit 2 is a usage or
+                # network failure and still raises.
+                accept_exit_codes=(0, 1),
                 timeout=1800,  # 30 minutes for slow CVE lookups
             )
 
@@ -40,6 +62,7 @@ class DependencyScanner(BaseScanner):
             for dep in data.get("dependencies", []):
                 for vuln in dep.get("vulns", []):
                     normalized = norm.normalize_pip_audit(dep, vuln)
+                    normalized["file_path"] = os.path.relpath(requirements_path, project_path)
                     self._save_finding(
                         db, scan_id,
                         **normalized
@@ -53,32 +76,26 @@ class DependencyScanner(BaseScanner):
         except Exception as e:
             raise ScannerError("SCA Audit", str(e)) from e
 
-    def _scan_javascript(self, scan_id: int, project_path: str, db: Session):
+    def _scan_javascript(self, scan_id: int, package_json_path: str, project_path: str, db: Session):
+        package_dir = os.path.dirname(package_json_path)
         try:
-            # npm audit needs a lockfile; generate one first if the project
-            # only ships a package.json. Mounted read-write for that write,
-            # which is safe: the scan directory is deleted once the scan ends.
-            #
-            # --ignore-scripts: a scanner must never execute the target repo's
-            # install/postinstall hooks, which are arbitrary code from
-            # untrusted input. It is also what makes repos like frappe/hrms
-            # scannable at all: their postinstall cds into subworkspaces and
-            # shells out to yarn, failing the whole step.
-            #
-            # The `;` (not &&) keeps a failed lockfile generation from
-            # short-circuiting the audit: npm audit exits 1 when it *finds*
-            # vulnerabilities but still writes the JSON report to stdout.
-            output = self._run_container(
-                image="node:18.20-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e",
-                command=["sh", "-c",
-                         "if [ ! -f package-lock.json ]; then "
-                         "npm install --package-lock-only --ignore-scripts --no-audit --no-fund >/dev/null 2>&1; fi; "
-                         "npm audit --json"],
-                volumes=[f"/tmp/svs_uploads/scan_{scan_id}:/src"],
-                network_disabled=False,
-                mem_limit="512m",
-                working_dir="/src",
-                timeout=1800,  # 30 minutes for slow registry lookups
+            lockfiles = ("package-lock.json", "npm-shrinkwrap.json")
+            if not any(os.path.isfile(os.path.join(package_dir, name)) for name in lockfiles):
+                self._run_command(
+                    "SCA Audit",
+                    self._npm_command([
+                        "install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund",
+                    ]),
+                    cwd=package_dir,
+                    timeout=1800,
+                )
+
+            output = self._run_command(
+                "SCA Audit",
+                self._npm_command(["audit", "--json"]),
+                cwd=package_dir,
+                accept_exit_codes=(0, 1),
+                timeout=1800,
             )
 
             data = json.loads(output)
@@ -96,6 +113,7 @@ class DependencyScanner(BaseScanner):
 
             for pkg, details in vulns.items():
                 normalized = norm.normalize_npm_audit(pkg, details)
+                normalized["file_path"] = os.path.relpath(package_json_path, project_path)
                 self._save_finding(
                     db, scan_id,
                     **normalized

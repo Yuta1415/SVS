@@ -1,27 +1,47 @@
-from fastapi import FastAPI
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text
 
 from .api import projects, scans
 from .core.config import settings
 from .database import engine
+from .engine.tasks import recover_stale_scans
 from .models.base import Base
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Scans are queued in-process, so anything left PENDING/RUNNING belongs to
+    # a previous process and can never complete.
+    recover_stale_scans()
+    yield
+
+
+app = FastAPI(title="Security Vulnerability Scanner (SVS) API", lifespan=lifespan)
 
 # Create tables on startup (Initial Migration)
 Base.metadata.create_all(bind=engine)
 
-# create_all will not ALTER an existing table, so schema changes since the
-# initial release are applied here, idempotently. ADD COLUMN IF NOT EXISTS is
-# a no-op on an already-migrated database.
+# create_all will not ALTER an existing table, so apply missing columns in a
+# dialect-compatible way (SQLite does not support ADD COLUMN IF NOT EXISTS).
 with engine.begin() as conn:
-    conn.execute(
-        text("ALTER TABLE findings ADD COLUMN IF NOT EXISTS triage_status VARCHAR(16) NOT NULL DEFAULT 'open'")
-    )
-    conn.execute(
-        text("ALTER TABLE findings ADD COLUMN IF NOT EXISTS cwe VARCHAR(16)")
-    )
+    existing_columns = {column["name"] for column in inspect(conn).get_columns("findings")}
+    if "triage_status" not in existing_columns:
+        conn.execute(text(
+            "ALTER TABLE findings ADD COLUMN triage_status VARCHAR(16) NOT NULL DEFAULT 'open'"
+        ))
+    if "cwe" not in existing_columns:
+        conn.execute(text("ALTER TABLE findings ADD COLUMN cwe VARCHAR(16)"))
+    scan_columns = {column["name"] for column in inspect(conn).get_columns("scans")}
+    if "warning_detail" not in scan_columns:
+        conn.execute(text("ALTER TABLE scans ADD COLUMN warning_detail TEXT"))
 
-app = FastAPI(title="Security Vulnerability Scanner (SVS) API")
+# ponytail: serve built React UI from frontend/dist; no nginx/port 3000 per PDF
+frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 
 # Origins come from settings so a deploy does not need a code change to allow
 # its own domain. An empty list still permits same-origin requests.
@@ -45,5 +65,16 @@ async def root():
     return {"message": "Welcome to the SVS API", "status": "online"}
 
 @app.get("/health")
-async def health_check():
+def health_check():
+    # A process that is listening is not necessarily a process that can read
+    # its database. Report the dependency, so a broken install is visible
+    # instead of a green check over a server that fails every request.
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="database unavailable") from exc
     return {"status": "healthy"}
+
+if os.path.isdir(frontend_dist):
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")

@@ -33,7 +33,7 @@ export default function App() {
       .finally(() => setLoading(false));
   }, [loadScans]);
 
-  // A queued scan is worked by Celery out-of-band, so the dashboard has to keep
+  // A queued scan is worked by the local thread pool, so the dashboard keeps
   // asking until the row reports a terminal status.
   const inFlight = scans.some((s) => s.status === 'scanning');
   useEffect(() => {

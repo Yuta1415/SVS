@@ -4,9 +4,14 @@
 __pycache__/
 *.pyc
 
-# Local secrets and tooling noise.
+# Local secrets, databases and tooling noise.
 .env
 .venv/
+.venv-cpython/
 venv/
 .git/
 .gitignore
+.ruff_cache/
+svs.db
+uploads/
+*.db

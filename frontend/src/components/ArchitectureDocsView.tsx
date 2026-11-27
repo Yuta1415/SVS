@@ -47,7 +47,7 @@ export const ArchitectureDocsView: React.FC = () => {
             Backend Architecture, API Reference & Prompts
           </h1>
           <p className="mt-1 text-sm text-slate-400">
-            Complete blueprint for SVS: containerized worker pipelines, database schema, OpenAPI routes, and the 15-step prompt series for AI coding tools.
+            Complete blueprint for SVS: local scanner pipeline, database schema, OpenAPI routes, and the 15-step prompt series for AI coding tools.
           </p>
         </div>
 
@@ -142,9 +142,9 @@ export const ArchitectureDocsView: React.FC = () => {
             <div className="space-y-3 pt-4">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Containerized Pipeline Topology (Mermaid Diagram)
+                  Local Pipeline Topology (Mermaid Diagram)
                 </span>
-                <span className="text-[11px] font-mono text-emerald-400">Docker Isolated Workers</span>
+                <span className="text-[11px] font-mono text-emerald-400">Native Scanner Tools</span>
               </div>
 
               <div className="rounded-xl border border-slate-800 bg-slate-950 p-6 font-['JetBrains_Mono',monospace] text-xs text-indigo-300 overflow-x-auto shadow-inner">
@@ -161,7 +161,7 @@ export const ArchitectureDocsView: React.FC = () => {
               <ul className="space-y-2 text-xs text-slate-300">
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-400 font-bold">•</span>
-                  <span><strong>Least-Egress Containers:</strong> Every scanner runs in its own container with a 512MB memory cap and a 15-minute timeout. Gitleaks runs with no network at all; Semgrep and the CVE audit egress only to fetch their ruleset and advisory databases, never to exfiltrate scanned code.</span>
+                  <span><strong>Local scanner tools:</strong> Scanner subprocesses have a 30-minute timeout but run with the backend user's host permissions, not in a sandbox. Use SVS only on localhost and do not scan untrusted repositories on a shared host.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-400 font-bold">•</span>
@@ -301,7 +301,7 @@ export const ArchitectureDocsView: React.FC = () => {
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <Database className="h-5 w-5 text-indigo-400" />
-                PostgreSQL Relational Schema Design (Step 2)
+                SQLite Relational Schema Design (Step 2)
               </h2>
               <p className="mt-1 text-xs text-slate-400">
                 Implemented using Prisma ORM or SQLAlchemy with cascading deletes and index optimizations on scan status and foreign keys.

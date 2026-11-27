@@ -2,41 +2,42 @@ import { PromptStep } from '../types';
 
 export const BACKEND_ARCHITECTURE_DOC = {
   title: 'SVS: Security Vulnerability Scanner — Backend Architecture & API Specifications',
-  overview: `SVS (Security Vulnerability Scanner) is an enterprise-grade asynchronous vulnerability scanning platform designed to ingest code repositories or archive bundles, execute multi-engine static application security testing (SAST), secrets scanning, and software composition analysis (SCA), and compute an objective security posture score with actionable remediation guidance.`,
+  overview: `SVS (Security Vulnerability Scanner) is a local asynchronous vulnerability scanning platform designed to ingest code repositories or archive bundles, execute multi-engine static application security testing (SAST), secrets scanning, and software composition analysis (SCA), and compute a security posture score with actionable remediation guidance.`,
   corePrinciples: [
-    'Least-Egress Sandboxing: every scanner runs in an isolated Docker container capped at 512MB RAM with a 15-minute timeout; Gitleaks runs fully offline, and only Semgrep ruleset and CVE advisory lookups egress.',
-    'Asynchronous Job Queue: Celery + Redis ensures HTTP APIs never block during multi-minute scan runs.',
+    'Local scanners: tools run as host subprocesses with a 30-minute timeout; they are not container-isolated.',
+    'Asynchronous execution: a bounded local thread pool keeps HTTP APIs responsive during multi-minute scans.',
     'Defensive Ingestion: 50MB upload ceiling, zip-only acceptance, and ephemeral per-scan work directories.',
     'Unified Findings Normalization: Disparate tool outputs (Semgrep, Gitleaks, pip-audit) normalized into a single database schema.',
     'Deterministic Scoring: weighted risk points (Critical 10, High 7, Medium 4, Low 1) fed into score = 100 / (1 + risk/25).'
   ],
   mermaidDiagram: `graph TD
     Client[Web UI - Vite React] -->|HTTP POST /scans| Gateway[FastAPI API Gateway]
-    Gateway -->|Validate & Enqueue| Ingest[Ingestion Service]
-    Gateway -->|Enqueue Job| Redis[(Redis / Celery Broker)]
-    Gateway -->|Store Metadata 'pending'| Postgres[(PostgreSQL Database)]
+    Gateway -->|Validate & extract| Ingest[Ingestion Service]
+    Gateway -->|Submit task| Pool[Local thread pool]
+    Gateway -->|Store Metadata 'pending'| SQLite[(SQLite Database)]
 
-    subgraph Async Worker Pool [Isolated Scan Worker Pool]
-        Redis --> Worker[Celery Worker Process]
-        Worker -->|Step 1: SAST| Semgrep[Docker: Semgrep, 512m / 15m, egress for ruleset]
-        Worker -->|Step 2: Secrets| Gitleaks[Docker: Gitleaks, offline]
-        Worker -->|Step 3: Dependencies| Audit[Docker: pip-audit, egress for CVE DB]
+    subgraph Async Worker Pool [Local Scan Worker Pool]
+        Pool --> Worker[Background worker]
+        Worker -->|Step 1: SAST| Semgrep[Semgrep CLI]
+        Worker -->|Step 2: Secrets| Gitleaks[Gitleaks CLI]
+        Worker -->|Step 3: Dependencies| Audit[pip-audit / npm audit]
+        Worker -->|Step 4: IaC| Checkov[Checkov CLI]
     end
 
     Semgrep -->|JSON stdout| Normalizer[Finding Normalizer & Scoring Engine]
     Gitleaks -->|JSON stdout| Normalizer
     Audit -->|JSON stdout| Normalizer
 
-    Normalizer -->|Persist Findings & Score| Postgres
+    Normalizer -->|Persist Findings & Score| SQLite
     Normalizer -->|Clean temp directory| Cleaner[Ephemeral Cleanup Service]
 
     Client -->|GET /scans/:id| Gateway
-    Gateway -->|Fetch status / findings| Postgres`,
+    Gateway -->|Fetch status / findings| SQLite`,
   endpoints: [
     {
       method: 'POST',
       path: '/scans/git',
-      description: 'Clone a remote Git repository and queue a scan. Returns immediately with a scan ID; the Celery worker runs the three engines asynchronously.',
+      description: 'Clone a remote Git repository and queue a scan. Returns immediately with a scan ID; the local background worker runs the scanners asynchronously.',
       auth: 'None (single-user local instance)',
       requestBody: `multipart/form-data
   project_id: 1            (int, required)

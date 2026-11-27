@@ -40,30 +40,27 @@ SVS was built to a short set of constraints, and most of the code's unusual
 choices follow directly from them.
 
 **Deterministic over magical.** Every finding comes from a named open-source
-tool running in a pinned container. No model decides what counts as a
-vulnerability, so a scan of the same code is the same scan. The score is
-arithmetic on the finding set, not an opinion.
+scanner running as a local command. No model decides what counts as a
+vulnerability. The score is arithmetic on the finding set, not an opinion.
 
-**The untrusted input is the scanned code.** A scanner executes inside a repo
-an attacker could have authored, so every engine runs as a throwaway sibling
-container with a memory cap, a timeout, and the scan directory as its only
-view of the filesystem. Network is disabled by default and enabled only for
-the two engines that genuinely need it.
+**The scanned source is treated as data.** Scanner commands read source files;
+SVS does not run the repository's application or install hooks. JavaScript
+lockfile generation uses `--ignore-scripts`. Scanners run on the host, not in
+containers, so use this local-only application with repositories you trust.
 
 **Async by necessity.** Scans run for minutes. The HTTP request that triggers
-one returns immediately; a Celery worker owns the pipeline and the frontend
-polls until it finishes.
+one returns immediately; a bounded local thread pool owns the pipeline and the
+frontend polls until it finishes.
 
 **Single-user, localhost.** Authentication was removed rather than half-built.
 The `users` table survives only because `projects.owner_id` has a non-nullable
 foreign key to it, and one `local` operator row is created on first request.
 This is a deliberate scope decision, not an oversight, and it is what makes
-the Docker-socket mount acceptable.
+the local-only deployment acceptable.
 
 **Honest about exposures.** The trade-offs are documented rather than hidden:
-the Docker socket is mounted into the backend and worker, PostgreSQL is
-published on 5432, and there is no auth. Each is defensible for a laptop tool
-and a liability the moment SVS is exposed publicly.
+scanner tools run with the backend user's host permissions, SQLite stores data
+in a local file, and there is no auth. This is for localhost use only.
 
 **Boring code that someone can decode at 3am.** The codebase deliberately
 avoids abstractions it does not need: one scanner base class, one normalizer,
@@ -80,28 +77,19 @@ Everything SVS uses, with the versions actually pinned in the repo.
 | Layer | Technology | Version | Role |
 | --- | --- | --- | --- |
 | API | FastAPI | 0.115.0 | REST API, Pydantic request/response models |
-| ASGI server | uvicorn | 0.30.6 | Serves the API on `:8000` |
+| ASGI server | uvicorn | 0.35.0 | Serves the API on `:8000` |
 | ORM | SQLAlchemy | 2.0.32 | Models, sessions, schema creation |
-| DB driver | psycopg2-binary | 2.9.9 | PostgreSQL wire protocol |
-| Validation | pydantic / pydantic-settings | 2.7.4 / 2.3.4 | Schemas and typed config from `.env` |
+| Database | SQLite | built in | Local `svs.db` file |
+| Validation | pydantic / pydantic-settings | 2.11.7 / 2.10.1 | Schemas and typed config from `.env` |
 | Multipart | python-multipart | 0.0.9 | `.zip` upload parsing |
-| Git | GitPython | 3.1.43 | Present in requirements; ingestion uses a `git clone` subprocess with an explicit timeout instead |
-| Docker client | docker (docker-py) | 7.1.0 | Launches and waits on scanner containers |
-| Task queue | Celery | 5.4.0 | The scan pipeline worker |
-| Broker/result backend | redis (py) | 5.0.3 | Talks to Redis broker and result store |
+| Git | Git CLI | host executable | Clones repositories with an explicit timeout |
+| Background tasks | `ThreadPoolExecutor` | Python standard library | Runs scans without a broker |
+| Static analysis | Semgrep | 1.177.0 | SAST |
+| Python dependencies | pip-audit | 2.9.0 | Known-CVE dependency audit |
+| IaC analysis | Checkov | 3.2.431 | Infrastructure-as-code checks |
+| Secret scanning | Gitleaks | host executable | Hardcoded secrets |
 | PDF | xhtml2pdf | 0.2.16 | HTML-to-PDF report generation |
-| Test runner | pytest | 8.3.3 | Scoring unit tests and the pipeline integration test |
-
-### Infrastructure
-
-| Component | Image / tool | Version |
-| --- | --- | --- |
-| Database | `postgres` | `15-alpine` |
-| Message broker | `redis` | `7-alpine` |
-| Backend base image | `python` | `3.11-slim` |
-| Worker base image | `python` | `3.11-slim` (same image as the backend) |
-| Frontend build | `node` | `20-alpine` |
-| Frontend serve | `nginx` | `stable-alpine` |
+| Test runner | pytest | 8.3.3 | Scoring, orchestration, and subprocess tests |
 
 ### Frontend
 
@@ -123,8 +111,7 @@ GitHub Actions (`.github/workflows/ci-cd.yml`) with four jobs:
 1. **lint** - matrix over `python` and `javascript`. Python runs
    `ruff check backend/ --select E9,F63,F7,F82 --exclude backend/tests/fixtures`;
    JavaScript runs `npm run lint` in `frontend/`.
-2. **test** - `pytest tests/` on Python 3.11 against PostgreSQL 15 and Redis
-   service containers.
+2. **test** - `pytest tests/` against isolated SQLite databases.
 3. **build** - on push to `main`, builds and pushes the backend image to
    `ghcr.io/${{ github.repository }}/backend` tagged `latest` and the commit SHA.
 4. **deploy** - fires a Railway deploy webhook.
@@ -134,55 +121,46 @@ GitHub Actions (`.github/workflows/ci-cd.yml`) with four jobs:
 ```mermaid
 graph TB
     FE[Browser UI<br/>React/Vite/TS :3000] --> API[FastAPI :8000]
-    API --> DB[(PostgreSQL :5432)]
-    API --> REDIS[(Redis :6379)]
-    API -->|enqueue task| REDIS
-    WORKER[Celery Worker] --> REDIS
-    WORKER --> DB
-    WORKER -->|docker socket| SCANNERS
-    subgraph SCANNERS [Throwaway scanner containers]
+    API --> DB[(SQLite svs.db)]
+    API -->|submit task| POOL[Local thread pool]
+    POOL --> DB
+    POOL -->|subprocess| SCANNERS
+    subgraph SCANNERS [Local scanner tools]
         S[Semgrep SAST]
         G[Gitleaks Secrets]
         D[pip-audit / npm audit]
         I[Checkov IaC]
     end
-    SCANNERS -->|bind-mount read-only| UPLOADS["/tmp/svs_uploads/scan_N"]
-    WORKER --> UPLOADS
+    POOL --> UPLOADS["Temporary scan directory"]
 ```
 
-Five compose services: `db`, `redis`, `backend`, `worker`, `frontend`. The
-backend and the worker are built from the same image - the worker just runs a
-different command (`celery -A app.core.celery_app worker --loglevel=info`).
+The API and frontend run locally. SQLite stores application data; no Docker
+daemon, Redis service, or Celery worker is required.
 
 ## What actually scans the code
 
-Four engines, each a disposable container launched through the Docker socket.
-Every image is pinned by digest, so a tampered or rewritten upstream image
-cannot change results between two scans of the same code with nothing in this
-repo changing.
+Four engines run as local executables. Install the versions below in the
+backend environment, and install Gitleaks separately as a host executable.
 
-| Engine | Finds | Image (digest-pinned) | Network | Memory | Timeout |
-| --- | --- | --- | --- | --- | --- |
-| Semgrep | SAST patterns: injection, XSS, bad crypto, deserialization | `semgrep/semgrep:1.177.0` | enabled (fetches the ruleset from semgrep.dev) | 512MB, 0.5 CPU | 1800s |
-| Gitleaks | Hardcoded secrets and API keys | `zricethezav/gitleaks:v8.9.0` | disabled, fully offline | 256MB | 1800s |
-| pip-audit / npm audit | Known-CVE dependencies | `python:3.11-slim` / `node:18.20-alpine` | enabled (fetches the advisory DB) | 512MB | 1800s |
-| Checkov | Infrastructure-as-code misconfigurations (Terraform, CloudFormation, Dockerfile) | `bridgecrew/checkov:3.2.431` | disabled | 512MB | 1800s |
+| Engine | Finds | Executable | Network | Timeout |
+| --- | --- | --- | --- | --- |
+| Semgrep | SAST patterns: injection, XSS, bad crypto, deserialization | `semgrep` | enabled for ruleset retrieval | 1800s |
+| Gitleaks | Hardcoded secrets and API keys | `gitleaks` | offline | 1800s |
+| pip-audit / npm audit | Known-CVE dependencies | backend Python / `npm` | enabled for advisory data | 1800s |
+| Checkov | Infrastructure-as-code misconfigurations (Terraform, CloudFormation, Dockerfile) | `checkov` | enabled as required by tool configuration | 1800s |
 
 Two engines are conditional and skip themselves rather than run a container
 that can only find nothing:
 
-- **Dependency scanning** runs the Python branch if the project has a
-  `requirements.txt` and the JavaScript branch if it has a `package.json`.
-  Neither file means no container.
+- **Dependency scanning** checks nested `requirements.txt` and `package.json`
+  manifests, including when a ZIP has a single top-level project directory.
 - **Checkov** walks the tree for `.tf`, `.tf.json`, `.cf.json`,
   `.template.json` or any `Dockerfile*`, skipping `.git`. A pure-Python repo
   pays nothing.
 
-Each container bind-mounts its scan directory, `/tmp/svs_uploads/scan_N`, as
-`/src`. Semgrep and pip-audit mount it read-only; Gitleaks and npm audit need
-write access (Gitleaks writes its report into the mount, npm audit may
-generate a missing lockfile). Both writes are safe because the directory is
-deleted when the scan finishes.
+Scan sources are unpacked under the operating system's temporary directory
+and removed when the background task finishes. Gitleaks writes a temporary
+report there; npm may generate a lockfile with install scripts disabled.
 
 ## The scan pipeline, step by step
 
@@ -191,18 +169,20 @@ deleted when the scan finishes.
    - Git: the URL is validated for SSRF (scheme allow-list, hostname resolved
      and every resolved address checked against private/loopback/link-local/
      multicast/reserved ranges, unresolvable names rejected), then
-     `git clone --depth=1` runs as a subprocess with a 300s timeout.
+     `git clone --depth=1` runs as a subprocess with a 300s timeout. An
+     optional branch or tag is passed to Git; blank uses the repository default.
    - Zip: the upload is capped at 50MB compressed, and the archive is screened
      for zip bombs *before* extraction - 500MB total uncompressed, or a
-     compression ratio above 100:1, is rejected. A `BadZipFile` deletes the
-     scan row and returns 400.
+     compression ratio above 100:1, is rejected. Invalid or rejected archives
+     delete their pending scan row and temporary directory before returning.
+     The upload is read only up to the configured cap plus one byte.
    - The target lands at `/tmp/svs_uploads/scan_<id>`.
 
-2. **Dispatch.** `run_security_scan.delay(scan_id, project_id)` enqueues a
-   Celery task. The HTTP request returns `scan_id` immediately.
+2. **Dispatch.** `run_security_scan(scan_id, project_id)` submits work to the
+   local thread pool. The HTTP request returns `scan_id` immediately.
 
-3. **Run.** The worker picks the task up off Redis, sets `status = RUNNING`
-   with `start_time`, and runs the four scanners **in sequence**. Each scanner
+3. **Run.** The background worker sets `status = RUNNING` with `start_time`,
+   then runs the four scanners **in sequence**. Each scanner
    persists its own findings and commits as it goes, so a scanner that dies
    still leaves the findings the ones before it produced.
 
@@ -221,7 +201,7 @@ deleted when the scan finishes.
 7. **Finish.** `status` becomes `COMPLETED` (or `FAILED`), `end_time` and
    `duration_seconds` are set. The task deletes the scan directory in a
    `finally` block and closes the session. On an unexpected exception the task
-   retries up to 3 times with a 60s countdown.
+   records the failure before cleanup.
 
 ## Normalization
 
@@ -314,11 +294,10 @@ Two formats, for two audiences:
 
 ## Data model
 
-Four tables, PostgreSQL, created on startup. `Base.metadata.create_all()`
-makes the initial tables, then two idempotent
-`ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements apply the schema
-changes made since the first release (`triage_status`, `cwe`). Both are
-no-ops on an already-migrated database.
+Four tables, SQLite, created on startup. `Base.metadata.create_all()` makes
+the initial tables, then schema inspection adds any missing `triage_status`
+and `cwe` columns. The migration works with SQLite, which does not support
+`ADD COLUMN IF NOT EXISTS`.
 
 ```
 users  1 - N  projects  1 - N  scans  1 - N  findings
@@ -353,7 +332,7 @@ the scanners keep those exact type values.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/` | Root banner |
-| `GET` | `/health` | Health probe (`{ "status": "healthy" }`) |
+| `GET` | `/health` | Health probe; checks the database and returns 503 if it cannot read it |
 | `GET` | `/projects/` | List all projects |
 | `POST` | `/projects/` | Create a project (JSON `name`, `repo_url`) |
 | `GET` | `/projects/{id}` | One project |
@@ -409,20 +388,21 @@ The API origin is `VITE_API_URL`, baked into the JS bundle at build time
 nothing here). It defaults to `http://localhost:8000`.
 
 `frontend-cra-legacy/` is the superseded Create React App build, kept for
-reference and not part of the compose stack.
+reference only.
 
 ## Security posture: what is deliberate and what is not
 
 Deliberate, and defensible for a localhost tool:
 
 - **No authentication.** Single-user instance; one `local` operator row.
-- **Docker socket mounted** into backend and worker. This is how the scanner
-  containers are launched. It is full host access, and the whole system is
-  only as trustworthy as the code it scans.
-- **PostgreSQL published on 5432.**
-- **Scanners networked selectively.** Network is disabled by default and
-  enabled only for Semgrep (ruleset) and the dependency auditors (advisory
-  DB). Gitleaks and Checkov run fully offline.
+- **Host-executed scanners.** Tools run as the backend user's account and
+  receive access to the local source directory. Do not expose the API or use
+  it to process untrusted repositories on a shared host.
+- **SQLite storage.** The database is a local file in the backend working
+  directory.
+- **Scanner network access.** Semgrep and dependency auditors need network for
+  rules/advisory data; local scanner execution does not provide container
+  network isolation.
 - **Ephemeral scan directories**, deleted in a `finally` when the task ends.
 
 Implemented and active:
@@ -431,9 +411,9 @@ Implemented and active:
   range rejection).
 - Zip-bomb screening before extraction (50MB compressed, 500MB uncompressed,
   100:1 ratio).
-- Scanner sandboxing: memory caps, 30-minute timeouts, read-only mounts where
-  the tool allows, exit-code handling so a tool that exits 1 *because it found
-  something* is not mistaken for a crash.
+- Scanner subprocesses have 30-minute timeouts and tool-specific exit-code
+  handling so a tool that exits 1 *because it found something* is not mistaken
+  for a crash.
 - Secret material is kept out of the database and the gitleaks report file is
   deleted once read.
 - `npm install` runs with `--ignore-scripts`, so a scanner never executes the
@@ -442,7 +422,7 @@ Implemented and active:
 Present in the code but **not currently wired up**:
 
 - **Rate limiting.** `check_rate_limit()` exists in
-  `core/rate_limit.py` (5 scans/hour per user, backed by Redis), but no
+  `core/rate_limit.py` (5 scans/hour, backed by Redis), but no
   endpoint imports or calls it. Do not assume a scan will be refused for
   exceeding the limit.
 
@@ -450,32 +430,46 @@ Present in the code but **not currently wired up**:
 
 ### Requirements
 
-- Docker Desktop, running.
+- Standard Windows CPython 3.11, 3.12, or 3.13 (not an MSYS/MINGW Python build)
+- Node.js and npm
+- Git (for Git URL ingestion)
+- Gitleaks installed and available on `PATH`
+- Internet access for Semgrep rules and dependency advisory data
 
-### The one command
+### Install and start
 
-Double-click **`run-svs.bat`**, or from the project root:
+Install the backend scanner packages and frontend dependencies once:
 
 ```bat
-run-svs.bat
+cd backend
+py -3.12 -m venv .venv-cpython
+.venv-cpython\Scripts\activate
+python -m pip install -r requirements.txt
+cd ..\frontend
+npm install
 ```
 
-It starts Docker Desktop if it is not already running, rebuilds the
-`backend`, `worker` and `frontend` images, brings the stack up, waits for the
-API health check, then opens the browser. The code is baked into the images
-rather than bind-mounted, so this rebuild is how your edits take effect.
+Then double-click **`run-svs.bat`** from the project root. It starts the API
+and frontend locally, waits for the API health check, then opens the browser.
+The launcher prefers `backend\.venv-cpython`, then `backend\.venv`; otherwise
+it uses `python` from `PATH`. Use standard Windows CPython to create the venv,
+not an MSYS/MINGW interpreter, because the pinned `pydantic-core` dependency
+requires a compatible CPython wheel.
 
-The scanner images are pulled on the first scan, so the first scan is slower
-than later ones.
+Gitleaks is a separate executable and must be installed on `PATH`:
+`winget install Gitleaks.Gitleaks`. `run-svs.bat` also checks the winget links
+directory, so a shell that has not picked up the new `PATH` yet still finds it.
+The API stores its SQLite database as `backend\svs.db` when launched by the
+batch file.
 
 ### URLs
 
-Use `127.0.0.1`, not `localhost`. A VS Code PHP server already owns
-`[::1]:3000`, so `localhost:3000` opens that mock app instead of SVS.
+Use `127.0.0.1`, not `localhost`, if another local server owns the localhost
+binding.
 
 | URL | What it is |
 | --- | --- |
-| http://127.0.0.1:3000 | React frontend (nginx) |
+| http://127.0.0.1:3000 | React frontend (Vite) |
 | http://127.0.0.1:8000 | FastAPI API |
 | http://127.0.0.1:8000/docs | Swagger / OpenAPI docs |
 | http://127.0.0.1:8000/health | Health check |
@@ -486,44 +480,29 @@ Use `127.0.0.1`, not `localhost`. A VS Code PHP server already owns
 2. Press **Launch Security Scan**, then use the **Demo** target, which clones
    `juice-shop/juice-shop` and scans it, or create a project and paste a
    public Git repository URL / upload a `.zip`.
-3. Scans run in the Celery worker. The dashboard polls every 2.5s until
+3. Scans run in a local background thread. The dashboard polls every 2.5s until
    `status` is `complete` or `failed`.
 4. In the report view, triage findings (open / resolved / false positive /
    accepted) and export a PDF or SARIF report.
 
-### Useful commands
-
-```bash
-docker compose logs -f worker          # scan pipeline output
-docker compose logs -f backend         # API output
-docker compose ps                      # which containers are up
-docker compose exec db psql -U svs_user -d svs_database
-docker compose down                    # stop everything (data persists)
-docker compose down -v                 # stop and delete the database volume
-```
-
 ### Local development
-
-`docker-compose.override.yml` bind-mounts `backend/` and `frontend/` for hot
-reload. The frontend served on port 3000 is the production build; to develop
-with hot reload instead, stop the compose frontend first to avoid a port
-conflict, then:
 
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-The API client talks to the API at `VITE_API_URL`, defaulting to
-`http://localhost:8000`.
+In a separate terminal, run `python -m uvicorn app.main:app --reload` from
+`backend\` with its virtual environment activated. The API client talks to
+`VITE_API_URL`, defaulting to `http://localhost:8000`.
 
 ## Testing and self-checks
 
 ### Test suite
 
 ```bash
-docker compose exec backend python -m pytest tests/ -v
+cd backend
+python -m pytest tests/ -v
 ```
 
 - `tests/test_scoring.py` - SQLite-in-memory unit tests for the formula:
@@ -531,8 +510,9 @@ docker compose exec backend python -m pytest tests/ -v
   1/1/1/1 case is exactly 53, ten criticals is 20, 40 mediums rank strictly
   above 80, unknown severities score as MEDIUM, and scoring is monotonic
   across severity classes.
-- `tests/test_pipeline.py` - the full containerized pipeline against
-  `tests/fixtures/vulnerable_project`; needs the worker images present.
+- `tests/test_pipeline.py` - pipeline orchestration using scanner stubs.
+- `tests/test_scanner_commands.py` - subprocess error handling and nested
+  manifest discovery.
 
 `tests/fixtures/vulnerable_project` is a deliberate three-finding target:
 a format-string SQL injection (`CWE-89`), a hardcoded password, and a
@@ -540,14 +520,15 @@ hardcoded AWS key (`AKIAIOSFODNN7EXAMPLE`, `CWE-798`).
 
 ### In-tree self-checks
 
-Each engine module has a `__main__` self-check runnable without a database or
-Docker, asserting the behaviour that would otherwise silently degrade a scan:
+Several engine modules have a `__main__` self-check runnable without a
+database or scanner installation, asserting behavior that would otherwise
+silently degrade a scan:
 
 ```bash
 python -m app.engine.scoring      # formula: clean=100, discriminative, ordered
 python -m app.engine.scanner      # cross-tool dedup rules
 python -m app.engine.normalizer   # severity maps, secret masking, CWE guidance
-python -m app.engine.iac_scanner  # IaC file detection and checkov paths
+python -m app.engine.iac_scanner  # IaC file detection and Checkov paths
 python -m app.engine.ingestion    # zip-bomb rejection
 ```
 
@@ -564,9 +545,12 @@ python -m app.engine.ingestion    # zip-bomb rejection
   Checkov is the exception: its image's entrypoint already runs `checkov`, so
   it takes an argv list and wrapping it in `sh -c` made it fail with
   "unrecognized arguments: sh".
-- **Exit code 1 means findings, not failure.** Gitleaks, npm audit and Checkov
-  all exit 1 when they find something; those codes are in
+- **Exit code 1 means findings, not failure.** Gitleaks, pip-audit, npm audit
+  and Checkov all exit 1 when they find something; those codes are in
   `accept_exit_codes` or the cleanest repo would scan as `FAILED`.
+- **A restart fails interrupted scans.** The queue is an in-process thread
+  pool, so scans left `PENDING`/`RUNNING` by a previous process are marked
+  `FAILED` on startup with an explicit reason instead of polling forever.
 - **A scanner that exits non-zero with no stdout is treated as an error**,
   with the last 500 bytes of stderr attached. Empty stdout with an accepted
   exit code is fine - Gitleaks and npm audit legitimately print nothing on
@@ -578,21 +562,22 @@ python -m app.engine.ingestion    # zip-bomb rejection
 - **The worker and the scanners must agree on the real path**
   `/tmp/svs_uploads`, which is why it is a host bind rather than a named
   volume.
-- **The branch field does nothing** in the UI; ingestion always clones the
-  default branch at depth 1.
-- **`.tar.gz` is accepted by the client but rejected by the API**, which
-  takes `.zip` only.
+- **ZIP uploads only.** The UI and API both accept `.zip` archives; tarballs
+  are not supported.
+- **Branch and tag selection applies only to Git scans.** Leave it blank to
+  clone the remote default branch. Commit hashes are not accepted by this
+  field.
 
 ## Project structure
 
 ```text
 SVS/
-├── backend/                # Python FastAPI backend + Celery worker (one image)
+├── backend/                # Python FastAPI backend + local scan worker
 │   ├── app/
 │   │   ├── api/            # routers: scans.py, projects.py, deps.py
 │   │   ├── core/           # config.py, celery_app.py, rate_limit.py
 │   │   ├── engine/         # the scanning system
-│   │   │   ├── base_scanner.py    # container runner, timeout, exit-code handling
+│   │   │   ├── base_scanner.py    # local command runner, timeout, exit-code handling
 │   │   │   ├── semgrep_scanner.py # SAST
 │   │   │   ├── gitleaks_scanner.py# secrets
 │   │   │   ├── dependency_scanner.py  # pip-audit / npm audit
@@ -602,10 +587,10 @@ SVS/
 │   │   │   ├── scanner.py         # orchestrator + cross-tool deduplication
 │   │   │   ├── scoring.py         # the hyperbolic score
 │   │   │   ├── reporting.py       # PDF
-│   │   │   └── tasks.py           # the Celery task
+│   │   │   └── tasks.py           # local background task
 │   │   ├── models/         # SQLAlchemy: user, project, scan, finding
 │   │   ├── schemas/        # Pydantic request/response models
-│   │   ├── database.py     # engine + session factory
+│   │   ├── database.py     # SQLite engine + session factory
 │   │   └── main.py         # app, CORS, idempotent schema migration
 │   └── tests/              # scoring unit tests + pipeline integration test
 ├── frontend/               # Vite + React 19 + TypeScript + Tailwind
@@ -616,10 +601,8 @@ SVS/
 │       └── types.ts
 ├── frontend-cra-legacy/    # the superseded Create React App build, reference only
 ├── docs/CODEFLOW.md        # mermaid diagrams of every flow
-├── docker-compose.yml      # db, redis, backend, worker, frontend
-├── docker-compose.override.yml  # dev bind-mounts
 ├── run-svs.bat             # the one-command launcher
-├── start.bat / stop-svs.bat / rebuild.bat / health-check.bat
+├── start.bat / stop-svs.bat / rebuild.bat / health-check.bat  # legacy Docker scripts
 └── .github/workflows/ci-cd.yml
 ```
 
@@ -627,12 +610,9 @@ SVS/
 
 Not part of the running system, and worth knowing about:
 
-- `docs/CODEFLOW.md` - mermaid diagrams for architecture, scan flow, pipeline,
-  schema, API, frontend, Celery, scoring, security and compose. Note these
-  partly predate the current code: they show a 15-minute timeout and describe
-  the pipeline as three scanners.
+- `docs/CODEFLOW.md` - current local architecture and scan-flow diagrams.
 - `docs/SVS-System-Documentation.html` and `.pdf` - the long-form system
-  documentation the app was specified against.
+  documentation from the previous Docker/Celery deployment.
 - `GAP-ANALYSIS.md` - a verification checklist against that documentation,
   dated 2026-09-27. Also partly stale: it lists Semgrep and Gitleaks as
   unpinned, and both now are.

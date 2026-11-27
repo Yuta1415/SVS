@@ -1,8 +1,10 @@
 // Vite only exposes env vars prefixed with VITE_ to the bundle, so the API
 // origin has to be spelled VITE_API_URL (CRA's REACT_APP_ prefix does nothing
-// here). Defaults to the local compose setup so `docker compose up` works with
-// no config, matching how the backend's CORS_ORIGINS is defaulted.
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// here). Without a build-time value, use the host the page was opened from, so
+// both localhost and 127.0.0.1 reach the API on the same spelling and CORS
+// keeps matching.
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000`;
 
 export interface ScanRow {
   id: number;
@@ -11,6 +13,7 @@ export interface ScanRow {
   created_at: string | null;
   score: number | null;
   error_detail: string | null;
+  warning_detail: string | null;
   critical_count: number;
   high_count: number;
   medium_count: number;
@@ -89,8 +92,15 @@ export const api = {
   listProjects: () => request<ProjectRow[]>('/projects/'),
   createProject: (name: string, repo_url: string) =>
     request<ProjectRow>('/projects/', json({ name, repo_url })),
-  scanGit: (project_id: number, repo_url: string) =>
-    request<DispatchResult>('/scans/git', form({ project_id: String(project_id), repo_url })),
+  scanGit: (project_id: number, repo_url: string, branch?: string) =>
+    request<DispatchResult>(
+      '/scans/git',
+      form({
+        project_id: String(project_id),
+        repo_url,
+        ...(branch ? { branch } : {}),
+      }),
+    ),
   scanUpload: (project_id: number, file: File) =>
     request<DispatchResult>('/scans/upload', form({ project_id: String(project_id), file })),
   scanDemo: () => request<DispatchResult>('/scans/demo', { method: 'POST' }),

@@ -139,7 +139,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Code Security & Vulnerability Operations
             </h1>
             <p className="text-sm sm:text-base text-slate-400 leading-relaxed">
-              Multi-scanner static analysis orchestrating Semgrep SAST, Gitleaks secret detection, and dependency CVE composition audits in isolated Docker runtimes.
+              Multi-scanner static analysis orchestrating Semgrep SAST, Gitleaks secret detection, and dependency CVE audits with local tools.
             </p>
           </div>
 
@@ -347,6 +347,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <p className="mt-1 text-xs text-slate-400 truncate max-w-md font-mono">
                         {scan.sourceName}
                       </p>
+                      {scan.warningDetail && (
+                        <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-300" title={scan.warningDetail}>
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span className="line-clamp-2">Scanner warning: {scan.warningDetail}</span>
+                        </p>
+                      )}
                       <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />

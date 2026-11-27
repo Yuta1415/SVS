@@ -1,3 +1,4 @@
+import os
 import tempfile
 
 from fastapi import (
@@ -11,6 +12,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.background import BackgroundTask
 from sqlalchemy.orm import Session
 
 from ..api.deps import get_local_user
@@ -73,7 +75,7 @@ async def trigger_demo_scan(
         db.commit()
         db.refresh(project)
     scan = await ingestion_service.ingest_git(repo_url, db, project.id)
-    run_security_scan.delay(scan.id, project.id)
+    run_security_scan(scan.id, project.id)
 
     return {"scan_id": scan.id, "status": scan.status, "message": "Demo scan queued for Juice-Shop."}
 
@@ -104,13 +106,12 @@ async def upload_zip(
         raise HTTPException(status_code=404, detail="Project not found")
 
     # Validate file extension
-    if not file.filename.endswith(".zip"):
+    if not file.filename or not file.filename.lower().endswith(".zip"):
         raise HTTPException(status_code=400, detail="Only .zip archives are accepted")
 
     scan = await ingestion_service.ingest_zip(file, db, project_id)
 
-    # Trigger the scan via Celery task
-    run_security_scan.delay(scan.id, project_id)
+    run_security_scan(scan.id, project_id)
 
     return {"scan_id": scan.id, "status": scan.status, "message": "Code ingested. Scan queued in background."}
 
@@ -118,6 +119,7 @@ async def upload_zip(
 async def ingest_git(
     project_id: int = Form(...),
     repo_url: str = Form(...),
+    branch: str | None = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_local_user)
 ):
@@ -126,10 +128,9 @@ async def ingest_git(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    scan = await ingestion_service.ingest_git(repo_url, db, project_id)
+    scan = await ingestion_service.ingest_git(repo_url, db, project_id, branch)
 
-    # Trigger the scan via Celery task
-    run_security_scan.delay(scan.id, project_id)
+    run_security_scan(scan.id, project_id)
 
     return {"scan_id": scan.id, "status": scan.status, "message": "Repository cloned. Scan queued in background."}
 
@@ -150,7 +151,8 @@ async def get_scan_status(scan_id: int, db: Session = Depends(get_db), current_u
         "medium": scan.medium_count,
         "low": scan.low_count,
         "duration": scan.duration_seconds,
-        "error_detail": scan.error_detail
+        "error_detail": scan.error_detail,
+        "warning_detail": scan.warning_detail,
     }
 
 @router.get("/{scan_id}/findings")
@@ -283,7 +285,8 @@ async def export_scan_report(
     return FileResponse(
         path=tmp_path,
         filename=f"scan_report_{scan_id}.pdf",
-        media_type="application/pdf"
+        media_type="application/pdf",
+        background=BackgroundTask(os.unlink, tmp_path),
     )
 
 # SARIF level is a closed vocabulary (none/note/warning/error), so the SVS

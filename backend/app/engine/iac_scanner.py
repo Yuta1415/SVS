@@ -1,16 +1,12 @@
 import json
 import os
+import sys
 
+import checkov
 from sqlalchemy.orm import Session
 
 from .base_scanner import BaseScanner, ScannerError
 from .normalizer import FindingNormalizer
-
-# Digest-pinned, like every other image in the pipeline: a floating tag would let
-# a tampered or broken image replace a working one between two scans with
-# nothing in this repo changing.
-CHECKOV_IMAGE = "bridgecrew/checkov:3.2.431@sha256:6fdac50c5eba95ed4bfc9a5c7b0c951d5a2ee495d3608f12d2aa565bda6e892f"
-
 
 class IacScanner(BaseScanner):
     """Scan infrastructure-as-code (Dockerfile, Terraform, CloudFormation).
@@ -21,9 +17,8 @@ class IacScanner(BaseScanner):
     application code and still deploy insecurely.
     """
 
-    # ponytail: Checkov supports a dozen frameworks; this is the subset an
-    # uploaded repo realistically contains, and it keeps a pure-Python repo
-    # from paying for a container that would report nothing. Kubernetes
+    # Checkov supports a dozen frameworks; this is the subset an uploaded repo
+    # realistically contains, and it skips a pure-Python repo. Kubernetes
     # manifests in an arbitrarily named directory are not detected, so a
     # k8s-only repo is skipped; add the glob when a real scan misses one.
     IAC_SUFFIXES = (".tf", ".tf.json", ".cf.json", ".template.json")
@@ -38,29 +33,22 @@ class IacScanner(BaseScanner):
         return False
 
     def scan(self, scan_id: int, project_path: str, db: Session):
-        # Same shape as the dependency scanner: no IaC files means no container,
-        # rather than running a scan that can only find nothing.
+        # Avoid running a scanner that cannot find anything in this repository.
         if not self._has_iac(project_path):
             return 0
 
         try:
-            # --quiet keeps stdout to the JSON report; --output json sends it
-            # there instead of the human-readable table. accept_exit_codes
-            # covers both exit-code conventions Checkov has used for "checks
-            # failed", so a repo with findings does not scan as FAILED.
-            #
-            # The image's ENTRYPOINT is /entrypoint.sh, which runs "checkov $@"
-            # when GITHUB_ACTIONS is unset. So this is an argv list of checkov
-            # flags, not a "sh -c" string: wrapping it in sh -c made the
-            # entrypoint run "checkov sh -c ..." and argparse exited 2 with
-            # "unrecognized arguments: sh".
-            output = self._run_container(
-                image=CHECKOV_IMAGE,
-                command=["-d", "/src", "--output", "json", "--quiet"],
-                volumes=[f"/tmp/svs_uploads/scan_{scan_id}:/src:ro"],
-                network_disabled=True,
-                mem_limit="512m",
-                working_dir="/src",
+            output = self._run_command(
+                "Checkov",
+                [
+                    sys.executable,
+                    os.path.join(os.path.dirname(checkov.__file__), "main.py"),
+                    "-d",
+                    project_path,
+                    "--output",
+                    "json",
+                    "--quiet",
+                ],
                 accept_exit_codes=(0, 1),
                 timeout=1800,
             )
@@ -70,7 +58,7 @@ class IacScanner(BaseScanner):
             raise ScannerError("Checkov", str(e)) from e
 
         if not output:
-            return 0
+            raise ScannerError("Checkov", "completed without producing a JSON report")
 
         try:
             reports = json.loads(output)
@@ -82,25 +70,30 @@ class IacScanner(BaseScanner):
         # list of failed checks.
         failed = []
         for report in (reports if isinstance(reports, list) else [reports]):
+            errors = report.get("errors") or []
+            if errors:
+                raise ScannerError("Checkov", f"reported scan errors: {errors[0]}")
             failed.extend((report.get("results") or {}).get("failed_checks") or [])
 
         norm = FindingNormalizer()
         for res in failed:
-            self._save_finding(db, scan_id, **norm.normalize_checkov(res))
+            finding = dict(res)
+            finding["file_path"] = self._repo_relative_path(
+                project_path, finding.get("file_path")
+            )
+            self._save_finding(db, scan_id, **norm.normalize_checkov(finding))
         db.commit()
         return len(failed)
 
 
 if __name__ == "__main__":
-    # _has_iac is the gate that decides whether a container runs at all, so it
+    # _has_iac is the gate that decides whether Checkov runs at all, so it
     # is the one piece of this scanner that can silently degrade a whole scan
     # (a repo with misconfigured Terraform scanned as clean because the walk
-    # missed it, or a pure-Python repo paying for a container that reports
-    # nothing). Its rules and the mount prefix the normalizer strips have to
-    # agree, or findings land on paths nothing else recognises.
+    # missed it, or a pure-Python repo paying for a scan that reports nothing).
     import tempfile
 
-    s = IacScanner(docker_client=None)
+    s = IacScanner()
 
     with tempfile.TemporaryDirectory() as d:
         for rel in ["main.tf", "nested/dir/Dockerfile", "infra/cf.json",
@@ -128,9 +121,8 @@ if __name__ == "__main__":
             fh.write("{}\n")
         assert s._has_iac(python_only), ".tf.json was not detected as IaC"
 
-    # The mount prefix the scanner uses and the one the normalizer strips have
-    # to be the same string, or paths silently stop matching between scan and
-    # report.
+    # The scan root and normalized paths have to agree so report paths remain
+    # repository-relative.
     from .normalizer import FindingNormalizer
 
     norm = FindingNormalizer()

@@ -55,6 +55,7 @@ function baseScan(
     status: mapStatus(status),
     startedAt: createdAt ?? new Date().toISOString(),
     score: score ?? 0,
+    warningDetail: undefined,
     counts: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
   };
 }
@@ -68,7 +69,10 @@ function withCounts(scan: Scan, critical: number, high: number, medium: number, 
 
 export function mapScanRow(row: ScanRow, projects: ProjectRow[]): Scan {
   return withCounts(
-    baseScan(row.id, row.project_id, row.status, row.created_at, row.score, projects),
+    {
+      ...baseScan(row.id, row.project_id, row.status, row.created_at, row.score, projects),
+      warningDetail: row.warning_detail ?? undefined,
+    },
     row.critical_count,
     row.high_count,
     row.medium_count,
@@ -78,7 +82,10 @@ export function mapScanRow(row: ScanRow, projects: ProjectRow[]): Scan {
 
 export function mapScanDetail(detail: ScanDetail, projects: ProjectRow[]): Scan {
   return withCounts(
-    baseScan(detail.id, detail.project_id, detail.status, detail.created_at, detail.score, projects),
+    {
+      ...baseScan(detail.id, detail.project_id, detail.status, detail.created_at, detail.score, projects),
+      warningDetail: detail.warning_detail ?? undefined,
+    },
     detail.critical,
     detail.high,
     detail.medium,

@@ -5,8 +5,10 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-.venv/
+.venv*/
 venv/
+backend/svs.db
+backend/uploads/
 
 # Node
 node_modules/

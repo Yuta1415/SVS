@@ -1,5 +1,9 @@
 # SVS Code Flow Diagrams
 
+These diagrams describe the current local-native workflow. Docker Compose,
+Celery, Redis, and container-isolation diagrams from the previous deployment
+have been removed; see the repository history for that architecture.
+
 ## System Architecture Overview
 
 ```mermaid
@@ -10,12 +14,11 @@ graph TB
 
     subgraph Backend ["Backend Services"]
         API[FastAPI Server<br/>:8000]
-        WORKER[Celery Worker]
-        REDIS[Redis<br/>:6379]
-        DB[(PostgreSQL<br/>:5432)]
+        WORKER[Local Thread Pool]
+        DB[(SQLite svs.db)]
     end
 
-    subgraph Scanners ["Scanner Containers"]
+    subgraph Scanners ["Local Scanner Tools"]
         SEMGREP[Semgrep SAST]
         GITLEAKS[Gitleaks Secrets]
         DEPENDENCY[Dependency Audit]
@@ -23,17 +26,18 @@ graph TB
     end
 
     subgraph Storage ["Storage"]
-        UPLOADS[Upload Directory<br/>/tmp/svs_uploads]
-        DOCKER[Docker Socket]
+        UPLOADS[Temporary Upload Directory]
     end
 
     FE --> API
-    API --> REDIS
-    WORKER --> REDIS
     WORKER --> DB
     API --> DB
-    WORKER --> DOCKER
+    API --> WORKER
     WORKER --> UPLOADS
+    WORKER --> SEMGREP
+    WORKER --> GITLEAKS
+    WORKER --> DEPENDENCY
+    WORKER --> IAC
 ```
 
 ---
@@ -45,26 +49,24 @@ sequenceDiagram
     participant User
     participant FE as Frontend
     participant API as FastAPI
-    participant Redis
-    participant Worker
-    participant DB as PostgreSQL
+    participant Worker as Local thread pool
+    participant DB as SQLite
     participant Scanner
 
     User->>FE: Select Project / Upload ZIP
     FE->>API: POST /scans/git or /scans/upload
     API->>DB: Create Scan Record (status=PENDING)
-    API->>Redis: Enqueue Celery Task
+    API->>Worker: Submit background task
     API-->>FE: Return scan_id
-
-    Note over Worker: Worker picks up task from Redis
 
     Worker->>DB: Update Scan (status=RUNNING)
     Worker->>DB: Get Project Path
     
-    Note over Worker: Run Scanners in Docker Containers
+    Note over Worker: Run local scanner commands
     Worker->>Scanner: Run Semgrep SAST
     Scanner-->>Worker: Return findings
     Worker->>DB: Save findings
+    Note over Scanner,DB: Non-fatal Semgrep warnings are saved with the scan; blocking errors fail the scanner
 
     Worker->>Scanner: Run Gitleaks
     Scanner-->>Worker: Return findings
@@ -238,22 +240,18 @@ flowchart TD
 
 ---
 
-## Celery Task Flow
+## Local Background Task Flow
 
 ```mermaid
 sequenceDiagram
     participant API
-    participant Redis
     participant Worker
     participant Database
 
     API->>Database: Create Scan (PENDING)
-    API->>Redis: task.run_security_scan(scan_id, project_id)
+    API->>Worker: run_security_scan(scan_id, project_id)
     API-->>Client: Return scan_id
 
-    Note over Worker: Worker monitors Redis queue
-    
-    Worker->>Redis: Get next task
     Worker->>Database: Update Scan (RUNNING)
     
     Worker->>Scanner: Execute scan pipeline
@@ -300,10 +298,10 @@ flowchart TD
         ZIPBOMB[Check compression ratio]
     end
 
-    subgraph "Container Isolation"
-        DOCKER[Run scanners in Docker]
-        NETWORK[Isolate network]
-        VOLUME[Mount only scan dir]
+    subgraph "Local Scan Execution"
+        TOOLS[Run scanner subprocesses]
+        TIMEOUT[Enforce 30-minute timeout]
+        ACCESS[Host permissions apply]
     end
 
     subgraph "Output Safety"
@@ -314,43 +312,19 @@ flowchart TD
 
     URL --> SSRF
     ZIP --> ZIPBOMB
-    SSRF --> DOCKER
-    ZIPBOMB --> DOCKER
-    DOCKER --> NETWORK
-    NETWORK --> VOLUME
-    VOLUME --> DEDUP
+    SSRF --> TOOLS
+    ZIPBOMB --> TOOLS
+    TOOLS --> TIMEOUT
+    TIMEOUT --> ACCESS
+    ACCESS --> DEDUP
     DEDUP --> SANITIZE
     SANITIZE --> LIMIT
 ```
 
 ---
 
-## Docker Compose Flow
+## Local Development
 
-```mermaid
-graph TB
-    subgraph "Container Dependencies"
-        DB[(PostgreSQL)]
-        REDIS[(Redis)]
-        BACKEND[FastAPI]
-        WORKER[Celery Worker]
-        FRONTEND[nginx + React]
-    end
-
-    FRONTEND --> BACKEND
-    BACKEND --> DB
-    BACKEND --> REDIS
-    WORKER --> DB
-    WORKER --> REDIS
-    WORKER --> DOCKER
-    
-    subgraph "Host Integration"
-        DOCKER[Docker Socket]
-        UPLOADS[/tmp/svs_uploads]
-    end
-
-    DOCKER --> BACKEND
-    DOCKER --> WORKER
-    UPLOADS --> BACKEND
-    UPLOADS --> WORKER
-```
+`run-svs.bat` launches the FastAPI API and Vite frontend. The API dispatches
+scans to an in-process thread pool and stores records in SQLite; no Docker
+daemon, Redis, or Celery process is used.

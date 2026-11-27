@@ -136,6 +136,16 @@ export const ScanReportView: React.FC<ScanReportViewProps> = ({
         </div>
       </div>
 
+      {scan.warningDetail && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200" role="status">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+          <div>
+            <p className="font-semibold">Semgrep coverage note — scan completed</p>
+            <p className="mt-1 whitespace-pre-wrap text-amber-100/80">{scan.warningDetail}</p>
+          </div>
+        </div>
+      )}
+
       {/* Hero Overview Card with Score Gauge (Step 6) */}
       <div className="overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950 p-6 sm:p-8 shadow-xl">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">

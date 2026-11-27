@@ -59,6 +59,7 @@ export interface Scan {
   startedAt: string;
   completedAt?: string;
   durationSeconds?: number;
+  warningDetail?: string;
   score: number;
   counts: {
     critical: number;

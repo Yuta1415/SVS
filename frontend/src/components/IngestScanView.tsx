@@ -19,6 +19,8 @@ import { Scan, ScanStage } from '../types';
 import { api } from '../services/api';
 import { enrichScan, mapScanDetail } from '../services/adapter';
 
+const MAX_SCAN_WAIT_MS = 2 * 60 * 60 * 1000;
+
 interface IngestScanViewProps {
   onScanComplete: (newScan: Scan) => void;
   onCancel: () => void;
@@ -38,7 +40,7 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
 
   // Git State
   const [repoUrl, setRepoUrl] = useState('');
-  const [branch, setBranch] = useState('main');
+  const [branch, setBranch] = useState('');
   const [ssrfWarning, setSsrfWarning] = useState<string | null>(null);
 
   // Scan Execution State
@@ -71,8 +73,8 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
 
   const validateAndSetFile = (file: File) => {
     setFileError(null);
-    if (!file.name.endsWith('.zip') && !file.name.endsWith('.tar.gz')) {
-      setFileError('Validation Error: Only .zip and .tar.gz archives are supported.');
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      setFileError('Validation Error: Only .zip archives are supported.');
       setSelectedFile(null);
       return;
     }
@@ -120,9 +122,9 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
   // Simulation Stages
   const initialStages: ScanStage[] = [
     { name: 'ingest', label: '1. Ingestion & Invariant Validation (50MB / SSRF)', status: 'waiting' },
-    { name: 'semgrep', label: '2. Semgrep SAST Engine (Docker isolated, egress for ruleset)', status: 'waiting' },
-    { name: 'gitleaks', label: '3. Gitleaks Secrets Analysis (Offline, no egress)', status: 'waiting' },
-    { name: 'deps', label: '4. Dependency Vulnerability Audit (egress for CVE database)', status: 'waiting' },
+    { name: 'semgrep', label: '2. Semgrep SAST Engine (local CLI)', status: 'waiting' },
+    { name: 'gitleaks', label: '3. Gitleaks Secrets Analysis (local CLI)', status: 'waiting' },
+    { name: 'deps', label: '4. Dependency Vulnerability Audit (local CLI)', status: 'waiting' },
     { name: 'score', label: '5. Finding Normalization & Severity Scoring', status: 'waiting' }
   ];
 
@@ -131,13 +133,13 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
   // Per-stage log lines. The backend reports only PENDING/RUNNING/COMPLETED, so
   // these stand in for the tool output the API does not stream yet.
   const STAGE_LOGS: Record<string, string[]> = {
-    ingest: [`[INGEST] Archive unpacked into isolated /tmp/svs_uploads/scan_* directory.`],
+    ingest: [`[INGEST] Source unpacked into a temporary scan directory.`],
     semgrep: [
-      `[SEMGREP] Booting Docker container: semgrep/semgrep:latest, 512m ceiling`,
-      `[SEMGREP] Fetching ruleset from semgrep.dev (--config=auto), then scanning /src`
+      `[SEMGREP] Running the local CLI and fetching the default ruleset if needed.`,
+      `[SEMGREP] Scanning the extracted source tree.`
     ],
-    gitleaks: [`[GITLEAKS] Offline entropy & pattern matching for hardcoded secrets and credentials.`],
-    deps: [`[DEPS] Auditing package manifests against the NVD and GitHub advisory database.`],
+    gitleaks: [`[GITLEAKS] Running local secret and credential detection.`],
+    deps: [`[DEPS] Auditing discovered package manifests against advisory data.`],
     score: [`[SCORE] Weighted risk points: Critical 10 | High 7 | Medium 4 | Low 1, then score = 100/(1+risk/25)`]
   };
 
@@ -162,8 +164,6 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
       setTerminalLogs([...logs]);
     };
 
-    // The backend has no branch column: it clones the default branch with
-    // depth 1, so the branch field above is advisory only.
     const finalProjectName = projectName ||
       (ingestMode === 'git'
         ? (repoUrl.trim().split('/').pop() || 'git-repo').replace(/\.git$/, '')
@@ -176,7 +176,7 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
         : ingestMode === 'git'
           ? `[INGEST] Source type: git. Ingestion target: ${repoUrl}`
           : `[INGEST] Source type: upload. Ingestion target: ${selectedFile?.name ?? 'codebase.zip'}`,
-      `[SECURITY] SSRF validation passed. Ingestion memory ceiling verified <= 50MB.`
+      `[SECURITY] The backend will validate the source and enforce archive limits before scanning.`
     );
 
     let scanId: number;
@@ -188,15 +188,15 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
         scanId = dispatch.scan_id;
         pushLogs(`[QUEUE] ${dispatch.message}`);
       } else {
-        // Every scan is keyed off a project row, so reuse an existing one with
-        // the same name instead of forking a duplicate per scan.
+        // A project represents both a display name and a source; reusing a
+        // same-named row for another URL/archive mislabels scan history.
         const repo_url = ingestMode === 'git' ? repoUrl.trim() : selectedFile!.name;
         const allProjects = await api.listProjects();
-        const project = allProjects.find((p) => p.name === finalProjectName)
+        const project = allProjects.find((p) => p.name === finalProjectName && p.repo_url === repo_url)
           ?? (await api.createProject(finalProjectName, repo_url));
 
         const dispatch = ingestMode === 'git'
-          ? await api.scanGit(project.id, repo_url)
+          ? await api.scanGit(project.id, repo_url, branch.trim() || undefined)
           : await api.scanUpload(project.id, selectedFile!);
         scanId = dispatch.scan_id;
         pushLogs(`[QUEUE] ${dispatch.message}`);
@@ -227,7 +227,9 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
       })));
     };
 
-    const deadline = Date.now() + 20 * 60 * 1000;
+    // Scanner subprocesses may each run for 30 minutes; the four scanners run
+    // sequentially, so a 20-minute UI timeout could abandon a healthy worker.
+    const deadline = Date.now() + MAX_SCAN_WAIT_MS;
     while (Date.now() < deadline) {
       advanceStage();
       await sleep(2000);
@@ -240,9 +242,12 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
           const findings = await api.getFindings(scanId);
           setCurrentProgress(100);
           setStages(prev => prev.map(s => ({ ...s, status: 'done' })));
+          if (detail.warning_detail) {
+            pushLogs(`[COVERAGE NOTE] Scan completed; Semgrep reports: ${detail.warning_detail}`);
+          }
           pushLogs(
             `[SCORE] Calculated Security Score: ${detail.score ?? 0}/100`,
-            `[CLEANUP] Purged temporary sandbox containers and extracted sources.`,
+            `[CLEANUP] Removed temporary extracted sources and scanner reports.`,
             `[COMPLETE] Scan ${scanId} finished. Redirecting to report...`
           );
           const allProjects = await api.listProjects();
@@ -265,9 +270,9 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
     }
 
     setHasFailed(true);
-    setScanError('Timed out waiting for the scan worker.');
+    setScanError('Timed out waiting for the scan worker after two hours.');
     setStages(prev => prev.map(s => ({ ...s, status: 'failed' })));
-    pushLogs('[ERROR] Timed out waiting for the scan worker.');
+    pushLogs('[ERROR] Timed out waiting for the scan worker after two hours.');
   };
 
   return (
@@ -282,7 +287,7 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
           Submit Codebase for Security Analysis
         </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Upload an archive or provide a remote Git URL. All scans execute asynchronously inside sandboxed containers; only the ruleset and CVE lookups egress, and your code never leaves the host.
+          Upload an archive or provide a remote Git URL. Scans run asynchronously with local tools; source stays on this host, but scanner processes have the backend user's permissions. Submit only code you trust.
         </p>
       </div>
 
@@ -364,7 +369,7 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".zip,.tar.gz"
+                  accept=".zip"
                   onChange={handleFileInputChange}
                   className="hidden"
                 />
@@ -390,7 +395,7 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
                         Drop your code archive here, or <span className="text-emerald-400 underline">browse files</span>
                       </p>
                       <p className="text-xs text-slate-500">
-                        Supports .zip or .tar.gz archives up to 50MB maximum (Step 3 validation)
+                        Supports .zip archives up to 50MB maximum
                       </p>
                     </>
                   )}
@@ -434,13 +439,13 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    Branch / Tag / Commit
+                    Branch or tag (optional)
                   </label>
                   <input
                     type="text"
                     value={branch}
                     onChange={(e) => setBranch(e.target.value)}
-                    placeholder="main"
+                    placeholder="Leave blank for default branch"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
@@ -474,25 +479,6 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
 
           {/* Authorization gate. Applies to every ingest mode, including the
               demo: all of them pull third-party code onto this host. */}
-          <label
-            htmlFor="authorize-scan"
-            className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-xs text-slate-300 cursor-pointer transition-colors hover:bg-slate-900/60"
-          >
-            <input
-              id="authorize-scan"
-              type="checkbox"
-              checked={authorized}
-              onChange={(e) => setAuthorized(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-emerald-500"
-            />
-            <span className="leading-relaxed">
-              I confirm that I own or am authorized to scan this code, and that
-              the findings may include exposed secrets and credentials. I accept
-              responsibility for remediating or reporting anything the pipeline
-              surfaces.
-            </span>
-          </label>
-
           {/* Consent gate (Gap 7): the pipeline clones or unpacks third-party code
               on this host, so the submitter must confirm authorization before the
               dispatch button is live. startScan re-checks it: a disabled button is
@@ -511,7 +497,7 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
             <span>
               I confirm that I own this codebase, or have explicit authorization to
               submit it for security analysis, and I accept that it will be unpacked
-              and scanned inside an isolated sandbox on this host.
+              and scanned by local tools running with this host user's permissions.
             </span>
           </label>
 
@@ -555,7 +541,7 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
                   {hasFailed ? 'Scan Failed' : 'Executing Scan'}: {projectName || (ingestMode === 'presets' ? 'Demo Scan' : 'Security Pipeline')}
                 </h3>
                 <p className="text-xs text-slate-400 font-mono">
-                  Celery worker • run_security_scan task
+                  Local worker • run_security_scan task
                 </p>
               </div>
             </div>
@@ -620,7 +606,7 @@ export const IngestScanView: React.FC<IngestScanViewProps> = ({
             <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-2 text-[11px] text-slate-400">
               <div className="flex items-center gap-2">
                 <Terminal className="h-3.5 w-3.5 text-emerald-400" />
-                <span>sandbox-worker-output.log</span>
+                <span>local-worker-output.log</span>
               </div>
               <span className="text-[10px] text-slate-500">Pipeline activity</span>
             </div>

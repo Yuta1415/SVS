@@ -10,6 +10,7 @@ class ScanOut(BaseModel):
     created_at: datetime | None = None
     score: int | None = None
     error_detail: str | None = None
+    warning_detail: str | None = None
     # The dashboard aggregates severity totals across every scan in one request,
     # so the counts travel with the scan instead of needing a findings call each.
     critical_count: int | None = 0

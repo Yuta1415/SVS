@@ -1,6 +1,5 @@
 from datetime import datetime
 
-import docker
 from sqlalchemy.orm import Session
 
 from ..models.finding import Finding
@@ -54,28 +53,7 @@ def deduplicate_findings(findings) -> list:
     return drop_ids
 
 class ScannerService:
-    def __init__(self):
-        self._client = None
-
-    @property
-    def client(self):
-        if self._client is None:
-            try:
-                self._client = docker.from_env()
-            except Exception as e:
-                print(f"Could not connect to Docker daemon: {e}")
-                return None
-        return self._client
-
     def run_full_scan(self, scan_id: int, project_path: str, db: Session):
-        if self.client is None:
-            print("Skipping scan: Docker daemon is not available")
-            scan = db.query(Scan).filter(Scan.id == scan_id).first()
-            if scan:
-                scan.status = "FAILED"
-                db.commit()
-            return
-
         # Update scan status to RUNNING
         scan = db.query(Scan).filter(Scan.id == scan_id).first()
         if not scan:
@@ -83,15 +61,17 @@ class ScannerService:
 
         scan.status = "RUNNING"
         scan.start_time = datetime.utcnow()
+        scan.error_detail = None
+        scan.warning_detail = None
         db.commit()
 
         try:
             # List of all active scanners in the pipeline
             scanners = [
-                SemgrepScanner(self.client),
-                GitleaksScanner(self.client),
-                DependencyScanner(self.client),
-                IacScanner(self.client),
+                SemgrepScanner(),
+                GitleaksScanner(),
+                DependencyScanner(),
+                IacScanner(),
             ]
 
             # Run each scanner in sequence, recording which ones failed.
