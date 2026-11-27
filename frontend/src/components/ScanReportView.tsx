@@ -75,9 +75,24 @@ export const ScanReportView: React.FC<ScanReportViewProps> = ({
   };
 
   const handleCopyCode = (id: string, code: string) => {
-    navigator.clipboard.writeText(code);
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(code).catch(() => fallbackCopy(code));
+    } else {
+      fallbackCopy(code);
+    }
     setCopiedSnippetId(id);
     setTimeout(() => setCopiedSnippetId(null), 2000);
+  };
+
+  const fallbackCopy = (text: string) => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch { /* ignore */ }
+    document.body.removeChild(ta);
   };
 
   const handleExportJSON = () => {
