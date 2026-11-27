@@ -23,22 +23,33 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Security Vulnerability Scanner (SVS) API", lifespan=lifespan)
 
-# Create tables on startup (Initial Migration)
+# Create tables on startup (Alembic handles migrations for existing DBs).
+# For fresh databases, create_all ensures tables exist before migrations run.
 Base.metadata.create_all(bind=engine)
 
-# create_all will not ALTER an existing table, so apply missing columns in a
-# dialect-compatible way (SQLite does not support ADD COLUMN IF NOT EXISTS).
-with engine.begin() as conn:
-    existing_columns = {column["name"] for column in inspect(conn).get_columns("findings")}
-    if "triage_status" not in existing_columns:
-        conn.execute(text(
-            "ALTER TABLE findings ADD COLUMN triage_status VARCHAR(16) NOT NULL DEFAULT 'open'"
-        ))
-    if "cwe" not in existing_columns:
-        conn.execute(text("ALTER TABLE findings ADD COLUMN cwe VARCHAR(16)"))
-    scan_columns = {column["name"] for column in inspect(conn).get_columns("scans")}
-    if "warning_detail" not in scan_columns:
-        conn.execute(text("ALTER TABLE scans ADD COLUMN warning_detail TEXT"))
+# Run Alembic migrations to apply any pending schema changes.
+try:
+    from alembic.config import Config
+    from alembic import command
+    alembic_cfg = Config(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
+    command.upgrade(alembic_cfg, "head")
+except Exception as e:
+    # Fall back to manual ALTER TABLE for environments without Alembic installed.
+    # SQLite does not support ADD COLUMN IF NOT EXISTS, so check first.
+    try:
+        with engine.begin() as conn:
+            existing_columns = {column["name"] for column in inspect(conn).get_columns("findings")}
+            if "triage_status" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE findings ADD COLUMN triage_status VARCHAR(16) NOT NULL DEFAULT 'open'"
+                ))
+            if "cwe" not in existing_columns:
+                conn.execute(text("ALTER TABLE findings ADD COLUMN cwe VARCHAR(16)"))
+            scan_columns = {column["name"] for column in inspect(conn).get_columns("scans")}
+            if "warning_detail" not in scan_columns:
+                conn.execute(text("ALTER TABLE scans ADD COLUMN warning_detail TEXT"))
+    except Exception as fallback_err:
+        print(f"Migration fallback failed: {fallback_err}")
 
 # ponytail: serve built React UI from frontend/dist; no nginx/port 3000 per PDF
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")

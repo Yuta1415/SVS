@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -27,7 +27,7 @@ class Scan(Base):
     # Populated when a scanner in the pipeline failed, so a FAILED scan can
     # say which tool broke instead of only showing the status.
     error_detail = Column(String, nullable=True)
-    warning_detail = Column(String, nullable=True)
+    warning_detail = Column(Text, nullable=True)
 
     project = relationship("Project", back_populates="scans")
     findings = relationship("Finding", back_populates="scan")

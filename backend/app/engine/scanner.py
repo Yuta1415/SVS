@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -10,12 +11,15 @@ from .gitleaks_scanner import GitleaksScanner
 from .iac_scanner import IacScanner
 from .scoring import scoring_service
 from .semgrep_scanner import SemgrepScanner
+from .sbom_scanner import SBOMScanner
 from .trivy_scanner import TrivyScanner
 
 # Severity order, used only to pick which of two duplicate findings survives.
 # An unknown value ranks with MEDIUM so it wins neither more nor less than a
 # real one by accident.
 SEVERITY_RANK = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "INFO": 0}
+
+logger = logging.getLogger(__name__)
 
 
 def deduplicate_findings(findings) -> list:
@@ -78,11 +82,19 @@ class ScannerService:
                 IacScanner(),
                 TrivyScanner(),
             ]
+
+            # SBOM generation is optional — don't fail the scan if syft
+            # is not installed or the generation fails.
+            try:
+                SBOMScanner().scan(scan_id, project_path, db)
+            except ScannerError as e:
+                logger.warning("Scanner %s failed: %s", e.tool, e.detail)
+                # Don't add to failures — SBOM is supplementary
             for scanner in scanners:
                 try:
                     scanner.scan(scan_id, project_path, db)
                 except ScannerError as e:
-                    print(f"Scanner {e.tool} failed: {e.detail}")
+                    logger.warning("Scanner %s failed: %s", e.tool, e.detail)
                     failures.append(f"{e.tool}: {e.detail}")
 
             # Collapse what the scanners double-reported before scoring, so a
