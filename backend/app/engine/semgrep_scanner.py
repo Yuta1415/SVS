@@ -59,7 +59,7 @@ class SemgrepScanner(BaseScanner):
                 "Semgrep",
                 [
                     "semgrep", "scan", "--json",
-                    "--config=p/default", "--metrics=off",
+                    "--config=p/security-audit", "--metrics=off",
                     "--disable-version-check",
                     "--timeout=30",
                     "--exclude=tests/", "--exclude=test/",

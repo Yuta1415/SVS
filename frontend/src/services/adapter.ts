@@ -26,6 +26,7 @@ function mapScanner(tool: string): ScannerType {
   // Checkov findings key on the check id, so without this branch every IaC
   // misconfiguration files itself under Semgrep in the report view.
   if (value === 'checkov') return 'checkov';
+  if (value === 'trivy') return 'trivy';
   return 'semgrep';
 }
 

@@ -10,6 +10,7 @@ from .gitleaks_scanner import GitleaksScanner
 from .iac_scanner import IacScanner
 from .scoring import scoring_service
 from .semgrep_scanner import SemgrepScanner
+from .trivy_scanner import TrivyScanner
 
 # Severity order, used only to pick which of two duplicate findings survives.
 # An unknown value ranks with MEDIUM so it wins neither more nor less than a
@@ -75,6 +76,7 @@ class ScannerService:
                 GitleaksScanner(),
                 DependencyScanner(),
                 IacScanner(),
+                TrivyScanner(),
             ]
             for scanner in scanners:
                 try:

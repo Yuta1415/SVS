@@ -1,5 +1,5 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
-export type ScannerType = 'semgrep' | 'gitleaks' | 'dependency-audit' | 'checkov';
+export type ScannerType = 'semgrep' | 'gitleaks' | 'dependency-audit' | 'checkov' | 'trivy';
 export type ScanStatus = 'pending' | 'scanning' | 'complete' | 'failed';
 export type FindingStatus = 'open' | 'resolved' | 'false_positive' | 'accepted';
 

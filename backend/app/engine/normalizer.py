@@ -1,3 +1,4 @@
+import os
 import re
 
 # Remediation guidance keyed by weakness class. Tools are uneven about this:
@@ -78,6 +79,96 @@ class FindingNormalizer:
             cwe,
             f"{fallback} See {cwe}: https://cwe.mitre.org/data/definitions/{cwe.split('-')[1]}.html",
         )
+
+    # Trivy severity is already CRITICAL/HIGH/MEDIUM/LOW/INFO, pass through.
+    TRIVY_SEVERITY = {
+        "CRITICAL": "CRITICAL",
+        "HIGH": "HIGH",
+        "MEDIUM": "MEDIUM",
+        "LOW": "LOW",
+        "UNKNOWN": "INFO",
+    }
+
+    def normalize_trivy_vuln(self, vuln: dict, target: str, project_path: str) -> dict | None:
+        """Normalize a Trivy vulnerability finding."""
+        pkg = vuln.get("PkgName", "unknown")
+        installed = vuln.get("InstalledVersion", "")
+        fixed = vuln.get("FixedVersion", "")
+        cve = vuln.get("VulnerabilityID", "")
+        severity = self.TRIVY_SEVERITY.get(vuln.get("Severity", "MEDIUM").upper(), "MEDIUM")
+        title = vuln.get("Title", f"Vulnerable package: {pkg}")
+        description = vuln.get("Description", title)[:500]
+
+        cwe_list = vuln.get("CweIDs") or []
+        cwe = cwe_list[0] if cwe_list else None
+
+        remediation = f"Upgrade {pkg} from {installed} to {fixed or 'latest'}." if fixed else f"Review {pkg} dependency; no fix version available."
+        if cwe:
+            remediation = self._cwe_remediation(cwe, remediation)
+
+        file_path = target
+        try:
+            file_path = os.path.relpath(target, project_path) if os.path.isabs(target) else target
+        except ValueError:
+            pass
+
+        return {
+            "vulnerability_type": f"Dependency-Vulnerability ({cve})",
+            "severity": severity,
+            "file_path": file_path,
+            "line_number": 0,
+            "description": f"{title}. {description}",
+            "remediation": remediation,
+            "cwe": cwe,
+        }
+
+    def normalize_trivy_secret(self, secret: dict, target: str, project_path: str) -> dict | None:
+        """Normalize a Trivy secret finding."""
+        rule_id = secret.get("RuleID", "Secret-Leak")
+        title = secret.get("Title", "Secret detected")
+        severity = self.TRIVY_SEVERITY.get(secret.get("Severity", "CRITICAL").upper(), "CRITICAL")
+        match = secret.get("Match", "")
+        start_line = secret.get("StartLine", 0)
+
+        file_path = target
+        try:
+            file_path = os.path.relpath(target, project_path) if os.path.isabs(target) else target
+        except ValueError:
+            pass
+
+        return {
+            "vulnerability_type": "Secret-Leak",
+            "severity": severity,
+            "file_path": file_path,
+            "line_number": start_line,
+            "description": f"{title}. Match: {match[:80]}",
+            "remediation": self._cwe_remediation("CWE-798", "Rotate the exposed credential immediately and remove it from the repository."),
+            "cwe": "CWE-798",
+        }
+
+    def normalize_trivy_misconfig(self, misconfig: dict, target: str, project_path: str) -> dict | None:
+        """Normalize a Trivy misconfiguration finding."""
+        check_id = misconfig.get("ID", "CKV")
+        title = misconfig.get("Title", "Misconfiguration")
+        severity = self.TRIVY_SEVERITY.get(misconfig.get("Severity", "MEDIUM").upper(), "MEDIUM")
+        description = misconfig.get("Description", title)[:500]
+        resolution = misconfig.get("Resolution", "Review and fix the configuration.")
+
+        file_path = target
+        try:
+            file_path = os.path.relpath(target, project_path) if os.path.isabs(target) else target
+        except ValueError:
+            pass
+
+        return {
+            "vulnerability_type": check_id if check_id.startswith("CKV") else f"Trivy-{check_id}",
+            "severity": severity,
+            "file_path": file_path,
+            "line_number": misconfig.get("StartLine", 0),
+            "description": f"{title}. {description}",
+            "remediation": resolution,
+            "cwe": None,
+        }
 
     def normalize_semgrep(self, finding: dict) -> dict:
         raw = finding.get("extra", {}).get("severity", "WARNING").upper()

@@ -13,10 +13,15 @@ class GitleaksScanner(BaseScanner):
         report_name = ".svs_gitleaks_report.json"
         report_path = os.path.join(project_path, report_name)
         try:
+            # Scan git history when available (catches secrets in old commits),
+            # falling back to working-tree-only scan for non-git directories.
+            command = ["gitleaks", "detect", "--source", project_path,
+                       "--report-format", "json", "--report-path", report_path, "--no-banner"]
+            if not os.path.isdir(os.path.join(project_path, ".git")):
+                command.insert(2, "--no-git")
             self._run_command(
                 "Gitleaks",
-                ["gitleaks", "detect", "--no-git", "--source", project_path,
-                 "--report-format", "json", "--report-path", report_path, "--no-banner"],
+                command,
                 accept_exit_codes=(0, 1),
                 timeout=1800,  # 30 minutes for large repos
             )

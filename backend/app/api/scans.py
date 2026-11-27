@@ -35,8 +35,11 @@ report_service = ReportService()
 def tool_for(v_type: str) -> str:
     if v_type == "Secret-Leak":
         return "Gitleaks"
-    if v_type == "Dependency-Vulnerability":
+    if v_type == "Dependency-Vulnerability" or v_type.startswith("Dependency-Vulnerability"):
         return "SCA Audit"
+    # Trivy findings: CVE-xxx, Trivy-xxx, or Dependency-Vulnerability (CVE)
+    if v_type.startswith("Trivy-"):
+        return "Trivy"
     # Checkov findings carry the check id (CKV_AWS_18) as their type, so a
     # distinct policy is a distinct rule in SARIF rather than one generic label.
     if v_type.startswith("CKV"):
