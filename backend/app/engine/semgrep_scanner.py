@@ -59,7 +59,13 @@ class SemgrepScanner(BaseScanner):
                 "Semgrep",
                 [
                     "semgrep", "scan", "--json",
-                    "--config=p/default", "--metrics=off", project_path,
+                    "--config=p/default", "--metrics=off",
+                    "--disable-version-check",
+                    "--timeout=30",
+                    "--exclude=tests/", "--exclude=test/",
+                    "--exclude=node_modules/", "--exclude=vendor/",
+                    "--exclude=*.min.js", "--exclude=*.generated.*",
+                    project_path,
                 ],
                 timeout=1800,  # 30 minutes for slow repos
                 accept_exit_codes=(0, 1),

@@ -130,10 +130,15 @@ class IngestionService:
                 # only reveals itself in the headers, and by the time
                 # extractall has written half a terabyte the disk is gone.
                 self._check_zip_bomb(content, zip_ref)
+                # Skip extracting heavy/irrelevant directories (node_modules,
+                # .git, venv, __pycache__, etc.) to speed up scanning and
+                # reduce disk usage.
+                _skip = {'.git', 'node_modules', '.venv', 'venv', '__pycache__', 'dist', 'build', '.tox'}
+                members = [m for m in zip_ref.namelist() if not any(part in m.split('/') for part in _skip)]
                 # Extraction is disk-bound and can take seconds on a large
                 # archive. Run it off the event loop so other requests, such as
                 # the dashboard's status poll, are not stalled behind it.
-                await asyncio.to_thread(zip_ref.extractall, extract_path)
+                await asyncio.to_thread(zip_ref.extractall, extract_path, members=members)
         except zipfile.BadZipFile:
             self._discard_failed_ingestion(scan, extract_path, db)
             raise HTTPException(status_code=400, detail="Invalid zip archive")

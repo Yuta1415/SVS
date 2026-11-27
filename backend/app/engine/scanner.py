@@ -66,16 +66,16 @@ class ScannerService:
         db.commit()
 
         try:
-            # List of all active scanners in the pipeline
+            # Run each scanner in sequence, recording which ones failed.
+            # (Parallel execution was tried but SQLite sessions are not
+            # thread-safe; PostgreSQL deployments can parallelize here.)
+            failures = []
             scanners = [
                 SemgrepScanner(),
                 GitleaksScanner(),
                 DependencyScanner(),
                 IacScanner(),
             ]
-
-            # Run each scanner in sequence, recording which ones failed.
-            failures = []
             for scanner in scanners:
                 try:
                     scanner.scan(scan_id, project_path, db)

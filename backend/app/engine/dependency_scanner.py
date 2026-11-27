@@ -51,7 +51,7 @@ class DependencyScanner(BaseScanner):
                 # successful report, not a broken scanner. Exit 2 is a usage or
                 # network failure and still raises.
                 accept_exit_codes=(0, 1),
-                timeout=1800,  # 30 minutes for slow CVE lookups
+                timeout=180,  # 3 minutes max for pip-audit CVE lookups
             )
 
             data = json.loads(output)
@@ -95,7 +95,7 @@ class DependencyScanner(BaseScanner):
                 self._npm_command(["audit", "--json"]),
                 cwd=package_dir,
                 accept_exit_codes=(0, 1),
-                timeout=1800,
+                timeout=180,
             )
 
             data = json.loads(output)
