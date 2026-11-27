@@ -26,15 +26,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Verify imports
+        run: |
+          cd backend
+          python -c "import app.main; print('Imports OK')"
+
       - name: Run tests
         run: |
           cd backend
-          python -m pytest tests -v
-
-      - name: Type check
-        run: |
-          cd backend
-          python -m py_compile app/main.py
+          python -m pytest tests -v --tb=short
 
   frontend:
     name: Frontend

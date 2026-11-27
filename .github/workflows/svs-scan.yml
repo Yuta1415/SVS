@@ -56,7 +56,7 @@ jobs:
         run: |
           cd backend
           python -c "
-          import os, sys, shutil, json
+          import os, sys, json
           sys.path.insert(0, '.')
           from app.engine.scanner import ScannerService
           from app.models.base import Base
@@ -64,7 +64,6 @@ jobs:
           from app.models.scan import Scan
           from app.models.project import Project
           from app.models.user import User
-          from app.models.finding import Finding
           Base.metadata.create_all(bind=engine)
           db = SessionLocal()
           user = User(username='ci', email='ci@svs.local', hashed_password='!')
@@ -76,9 +75,10 @@ jobs:
           src = os.path.abspath('..')
           dst = f'/tmp/svs_uploads/scan_{scan.id}'
           os.makedirs(dst, exist_ok=True)
-          # Copy repo (skip heavy dirs)
+          import shutil
+          # Copy the repo (skip heavy dirs)
           for item in os.listdir(src):
-              if item in {'.git', 'node_modules', '.venv', '__pycache__', 'dist', 'build', '.tox', 'frontend', 'backend'}:
+              if item in {'.git', 'node_modules', '.venv', '__pycache__', 'dist', 'build', '.tox'}:
                   continue
               s = os.path.join(src, item)
               d = os.path.join(dst, item)
@@ -86,18 +86,12 @@ jobs:
                   shutil.copytree(s, d, dirs_exist_ok=True)
               else:
                   shutil.copy2(s, d)
-          # Copy backend app code (the part being scanned)
-          os.makedirs(os.path.join(dst, 'backend'), exist_ok=True)
-          shutil.copytree('app', os.path.join(dst, 'backend', 'app'), dirs_exist_ok=True)
-          # Copy frontend source
-          os.makedirs(os.path.join(dst, 'frontend'), exist_ok=True)
-          shutil.copytree('../frontend/src', os.path.join(dst, 'frontend', 'src'), dirs_exist_ok=True)
           svc = ScannerService()
           svc.run_full_scan(scan.id, dst, db)
           print(f'Scan {scan.id}: {scan.status} score={scan.score} findings={len(scan.findings)}')
-          if scan.status == 'FAILED':
-              print(f'Error: {scan.error_detail}')
-          # Generate SARIF regardless of scan status
+          if scan.error_detail:
+              print(f'Warnings: {scan.error_detail}')
+          # Generate SARIF
           sarif = {
               '\$schema': 'https://docs.oasis-open.org/sarif/sarif/v2.1.0/cs01/schemas/sarif-schema-2.1.0.json',
               'version': '2.1.0',
