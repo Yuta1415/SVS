@@ -3,8 +3,6 @@ import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { IngestScanView } from './components/IngestScanView';
 import { ScanReportView } from './components/ScanReportView';
-import { KnowledgeBaseView } from './components/KnowledgeBaseView';
-import { ArchitectureDocsView } from './components/ArchitectureDocsView';
 import { api, ProjectRow } from './services/api';
 import { enrichScan, mapScanRow } from './services/adapter';
 import { FindingStatus, Scan } from './types';
@@ -12,7 +10,7 @@ import { FindingStatus, Scan } from './types';
 const POLL_INTERVAL_MS = 2500;
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'new-scan' | 'report' | 'kb' | 'architecture'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'new-scan' | 'report'>('dashboard');
   const [scans, setScans] = useState<Scan[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,14 +139,6 @@ export default function App() {
             onUpdateFindingStatus={handleUpdateFindingStatus}
           />
         )}
-
-        {activeTab === 'kb' && (
-          <KnowledgeBaseView />
-        )}
-
-        {activeTab === 'architecture' && (
-          <ArchitectureDocsView />
-        )}
       </main>
 
       {/* Footer */}
@@ -159,9 +149,11 @@ export default function App() {
             <span>• Security Vulnerability Scanner Platform</span>
           </div>
           <div className="flex items-center gap-4 text-[11px] text-slate-500 font-mono">
-            <span>Semgrep Core SAST</span>
+            <span>Semgrep SAST</span>
             <span>Gitleaks Secrets</span>
-            <span>Dependency CVE Audit</span>
+            <span>Dependency CVEs</span>
+            <span>Checkov IaC</span>
+            <span>Trivy Containers</span>
           </div>
         </div>
       </footer>

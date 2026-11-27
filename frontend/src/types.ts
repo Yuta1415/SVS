@@ -75,19 +75,7 @@ export interface Scan {
   branch?: string;
 }
 
-export interface KnowledgeBaseItem {
-  id: string;
-  type: string;
-  title: string;
-  cwe: string;
-  category: 'SAST' | 'Secrets' | 'Dependencies';
-  defaultSeverity: Severity;
-  summary: string;
-  whyItMatters: string;
-  vulnerableExample: string;
-  secureExample: string;
-  remediationSteps: string[];
-}
+
 
 export interface PromptStep {
   step: number;

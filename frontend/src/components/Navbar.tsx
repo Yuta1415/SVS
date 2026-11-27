@@ -2,15 +2,13 @@ import React from 'react';
 import {
   ShieldAlert,
   Terminal,
-  BookOpen,
-  Code2,
   PlusCircle,
   LayoutDashboard,
 } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'dashboard' | 'new-scan' | 'report' | 'kb' | 'architecture';
-  setActiveTab: (tab: 'dashboard' | 'new-scan' | 'report' | 'kb' | 'architecture') => void;
+  activeTab: 'dashboard' | 'new-scan' | 'report';
+  setActiveTab: (tab: 'dashboard' | 'new-scan' | 'report') => void;
   hasActiveReport: boolean;
 }
 
@@ -87,31 +85,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          <button
-            id="nav-tab-kb"
-            onClick={() => setActiveTab('kb')}
-            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all ${
-              activeTab === 'kb'
-                ? 'bg-slate-800 text-white shadow-inner font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-            }`}
-          >
-            <BookOpen className="h-4 w-4 text-amber-400" />
-            Knowledge Base
-          </button>
-
-          <button
-            id="nav-tab-architecture"
-            onClick={() => setActiveTab('architecture')}
-            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 transition-all ${
-              activeTab === 'architecture'
-                ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-semibold'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-            }`}
-          >
-            <Code2 className="h-4 w-4 text-indigo-400" />
-            Backend Architecture &amp; Prompts
-          </button>
         </nav>
 
         {/* Right Actions: local instance pill. No auth surface by design. */}
@@ -154,22 +127,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Terminal className="h-3.5 w-3.5 text-cyan-400" /> Report
           </button>
         )}
-        <button
-          onClick={() => setActiveTab('kb')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md whitespace-nowrap ${
-            activeTab === 'kb' ? 'bg-slate-800 text-white font-medium' : 'text-slate-400'
-          }`}
-        >
-          <BookOpen className="h-3.5 w-3.5 text-amber-400" /> Knowledge Base
-        </button>
-        <button
-          onClick={() => setActiveTab('architecture')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md whitespace-nowrap ${
-            activeTab === 'architecture' ? 'bg-indigo-500/20 text-indigo-300 font-medium' : 'text-slate-400'
-          }`}
-        >
-          <Code2 className="h-3.5 w-3.5 text-indigo-400" /> Docs &amp; Prompts
-        </button>
       </div>
     </header>
   );
